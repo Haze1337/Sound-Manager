@@ -42,7 +42,6 @@ ArrayList gA_AmbientEntities = null;
 //Late Load
 bool gB_LateLoad = false;
 
-
 //---------------------------FORWARDS-----------------------
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
@@ -79,7 +78,6 @@ public void OnPluginStart()
 	AddNormalSoundHook(SoundHook_Normal);
 	AddAmbientSoundHook(SoundHook_Ambient);
 	AddTempEntHook("Shotgun Shot", CSS_Hook_ShotgunShot);
-	
 	
 	//Late Load
 	if(gB_LateLoad)
