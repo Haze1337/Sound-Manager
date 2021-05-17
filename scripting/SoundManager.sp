@@ -99,7 +99,6 @@ public void OnPluginStart()
 					OnClientCookiesCached(i);
 				}
 			}
-			
 		}
 	}
 }
@@ -389,7 +388,9 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 public Action CSS_Hook_ShotgunShot(const char[] te_name, const int[] Players, int numClients, float delay)
 {
 	if(!gB_Hooked)
+	{
 		return Plugin_Continue;
+	}
 	
 	// Check which clients need to be excluded.
 	int newTotal = 0, client, i;
@@ -407,11 +408,14 @@ public Action CSS_Hook_ShotgunShot(const char[] te_name, const int[] Players, in
 	
 	// No clients were excluded.
 	if (newTotal == numClients)
+	{
 		return Plugin_Continue;
-	
+	}
 	// All clients were excluded and there is no need to broadcast.
 	else if (newTotal == 0)
+	{
 		return Plugin_Stop;
+	}
 	
 	// Re-broadcast to clients that still need it.
 	float vTemp[3];
@@ -460,9 +464,11 @@ public Action Connect_MuteAmbient(Handle hTimer, any data)
 public Action Timer_MuteAmbient(Handle hTimer, any data)
 {
 	int entity = EntRefToEntIndex(data);
+	
 	if (entity != INVALID_ENT_REFERENCE)
 	{
 		char sSound[128];
+		
 		for(int client = 1; client <= MaxClients; client++)
 		{
 			if(IsValidClient(client))
