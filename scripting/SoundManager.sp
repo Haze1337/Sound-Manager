@@ -289,7 +289,7 @@ public MRESReturn DHook_AcceptInput(int pThis, Handle hReturn, Handle hParams)
 public Action Command_Sounds(int client, int args)
 {
 	Menu menu = new Menu(MenuHandler_Sounds);
-	menu.SetTitle("Sound Manager");
+	menu.SetTitle("Sound Manager\n \n");
 
 	char sDisplay[64];
 	char sInfo[16];
@@ -297,17 +297,21 @@ public Action Command_Sounds(int client, int args)
 	FormatEx(sDisplay, 64, "Soundscapes: [%s]", gI_Settings[client] & Mute_SoundScapes ? "Muted" : "On");
 	IntToString(Mute_SoundScapes, sInfo, 16);
 	menu.AddItem(sInfo, sDisplay);
-	
+
 	FormatEx(sDisplay, 64, "Ambient Sounds: [%s]", gI_Settings[client] & Mute_AmbientSounds ? "Muted" : "On");
 	IntToString(Mute_AmbientSounds, sInfo, 16);
 	menu.AddItem(sInfo, sDisplay);
-	
-	FormatEx(sDisplay, 64, "Gun Sounds: [%s]", gI_Settings[client] & Mute_GunSounds ? "Muted" : "On");
+
+	FormatEx(sDisplay, 64, "Trigger Sounds: [%s]\n ", gI_Settings[client] & Mute_TriggerSounds ? "Muted" : "On");
+	IntToString(Mute_TriggerSounds, sInfo, 16);
+	menu.AddItem(sInfo, sDisplay);
+
+	FormatEx(sDisplay, 64, "Gun Sounds: [%s]\n ", gI_Settings[client] & Mute_GunSounds ? "Muted" : "On");
 	IntToString(Mute_GunSounds, sInfo, 16);
 	menu.AddItem(sInfo, sDisplay);
-	
-	FormatEx(sDisplay, 64, "Trigger Sounds: [%s]", gI_Settings[client] & Mute_TriggerSounds ? "Muted" : "On");
-	IntToString(Mute_TriggerSounds, sInfo, 16);
+
+	FormatEx(sDisplay, 64, "Block all sound packets: [%s]", gI_Settings[client] & Mute_AllPackets ? "Yes" : "No");
+	IntToString(Mute_AllPackets, sInfo, 16);
 	menu.AddItem(sInfo, sDisplay);
 	
 	if(CheckCommandAccess(client, "soundmanager_debug", ADMFLAG_RCON))
@@ -316,10 +320,6 @@ public Action Command_Sounds(int client, int args)
 		IntToString(Debug, sInfo, 16);
 		menu.AddItem(sInfo, sDisplay);
 	}
-	
-	FormatEx(sDisplay, 64, "Block All sound packets: [%s]", gI_Settings[client] & Mute_AllPackets ? "Yes" : "No");
-	IntToString(Mute_AllPackets, sInfo, 16);
-	menu.AddItem(sInfo, sDisplay);
 
 	menu.Display(client, MENU_TIME_FOREVER);
 	return Plugin_Handled;
