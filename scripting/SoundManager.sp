@@ -80,7 +80,7 @@ public void OnPluginStart()
 	AddAmbientSoundHook(SoundHook_Ambient);
 	AddTempEntHook("Shotgun Shot", CSS_Hook_ShotgunShot);
 
-	//Late Load
+	// Late Load
 	if(gB_LateLoad)
 	{
 		int entity = -1;
@@ -143,7 +143,7 @@ public void OnClientCookiesCached(int client)
 
 	if(gI_Settings[client] & Mute_AmbientSounds)
 	{
-		CreateTimer(1.0, Connect_MuteAmbient, GetClientSerial(client));
+		CreateTimer(1.0, ConnectMuteAmbientTimer, GetClientSerial(client));
 	}
 }
 //-------------------------------------------------------------
@@ -429,55 +429,62 @@ public Action CSS_Hook_ShotgunShot(const char[] te_name, const int[] Players, in
 	return Plugin_Stop;
 }
 
-public Action Connect_MuteAmbient(Handle hTimer, any data)
+public Action ConnectMuteAmbientTimer(Handle hTimer, any data)
 {
 	int client = GetClientFromSerial(data);
 
-	if(IsValidClient(client))
+	if(!IsValidClient(client))
 	{
-		char sSound[128];
+		return;
+	}
 
-		for(int i = 0; i < gA_PlayEverywhereAmbients.Length; i++)
+	for(int i = 0; i < gA_PlayEverywhereAmbients.Length; i++)
+	{
+		int entity = EntRefToEntIndex(gA_PlayEverywhereAmbients.Get(i));
+
+		if(entity != INVALID_ENT_REFERENCE)
 		{
-			int entity = EntRefToEntIndex(gA_PlayEverywhereAmbients.Get(i));
-
-			if(entity != INVALID_ENT_REFERENCE)
-			{
-				GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, sizeof(sSound));
-				EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
-
-				if(gI_Settings[client] & Debug)
-				{
-					PrintToChat(client, "[Debug] Ambient Blocked (%s)", sSound);
-				}
-			}
+			MuteAmbientForClient(client, entity);
 		}
 	}
 }
 
-public Action Timer_MuteAmbient(Handle hTimer, any data)
+void MuteAmbientForClient(int client, int entity)
+{
+	if(!IsValidEdict(entity) || entity == INVALID_ENT_REFERENCE)
+	{
+		return;
+	}
+
+	char sSound[PLATFORM_MAX_PATH];
+	GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, PLATFORM_MAX_PATH);
+	EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
+
+	if(gI_Settings[client] & Debug)
+	{
+		PrintToChat(client, "[Debug] Ambient Blocked (%s)", sSound);
+	}
+}
+
+public Action MuteAmbientTimer(Handle hTimer, any data)
 {
 	int entity = EntRefToEntIndex(data);
 
-	if(entity != INVALID_ENT_REFERENCE)
+	if(!IsValidEdict(entity) || entity == INVALID_ENT_REFERENCE)
 	{
-		char sSound[128];
+		return;
+	}
 
-		for(int client = 1; client <= MaxClients; client++)
+	for(int i = 1; i <= MaxClients; i++)
+	{
+		if(!IsValidClient(i))
 		{
-			if(IsValidClient(client))
-			{
-				if(gI_Settings[client] & Mute_AmbientSounds)
-				{
-					GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, sizeof(sSound));
-					EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
+			continue;
+		}
 
-					if(gI_Settings[client] & Debug)
-					{
-						PrintToChat(client, "[Debug] Ambient Blocked (%s)", sSound);
-					}
-				}
-			}
+		if(gI_Settings[i] & Mute_AmbientSounds)
+		{
+			MuteAmbientForClient(i, entity);
 		}
 	}
 }
@@ -489,7 +496,7 @@ public Action SoundHook_Ambient(char sample[PLATFORM_MAX_PATH], int &entity, flo
 		return Plugin_Continue;
 	}
 
-	CreateTimer(0.1, Timer_MuteAmbient, EntIndexToEntRef(entity));
+	CreateTimer(0.1, MuteAmbientTimer, EntIndexToEntRef(entity));
 
 	return Plugin_Continue;
 }
