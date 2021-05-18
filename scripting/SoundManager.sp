@@ -396,26 +396,28 @@ public Action CSS_Hook_ShotgunShot(const char[] te_name, const int[] Players, in
 	}
 
 	// Check which clients need to be excluded.
-	int newTotal = 0;
-	int[] newClients = new int[MaxClients];
+	int newClients[MAXPLAYERS+1];
+	int count = 0;
 
 	for(int i = 0; i < numClients; i++)
 	{
-		int client = Players[i];
+		int iClient = Players[i];
 
-		if(!(gI_Settings[client] & Mute_GunSounds))
+		// player not muting gun sounds
+		if(gI_Settings[iClient] & Mute_GunSounds == 0)
 		{
-			newClients[newTotal++] = client;
+			newClients[count] = iClient;
+			count++;
 		}
 	}
 
 	// No clients were excluded.
-	if(newTotal == numClients)
+	if(count == numClients)
 	{
 		return Plugin_Continue;
 	}
 	// All clients were excluded and there is no need to broadcast.
-	else if(newTotal == 0)
+	else if(count == 0)
 	{
 		return Plugin_Stop;
 	}
@@ -433,7 +435,7 @@ public Action CSS_Hook_ShotgunShot(const char[] te_name, const int[] Players, in
 	TE_WriteNum("m_iPlayer", TE_ReadNum("m_iPlayer"));
 	TE_WriteFloat("m_fInaccuracy", TE_ReadFloat("m_fInaccuracy"));
 	TE_WriteFloat("m_fSpread", TE_ReadFloat("m_fSpread"));
-	TE_Send(newClients, newTotal, delay);
+	TE_Send(newClients, count, delay);
 
 	return Plugin_Stop;
 }
