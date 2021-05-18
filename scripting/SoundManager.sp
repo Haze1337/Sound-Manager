@@ -52,12 +52,12 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 public void OnPluginStart()
 {
 	// Commands
-	RegConsoleCmd("sm_snd", Command_Sounds, "");
-	RegConsoleCmd("sm_sound", Command_Sounds, "");
-	RegConsoleCmd("sm_sounds", Command_Sounds, "");
-	RegConsoleCmd("sm_music", Command_Sounds, "");
-	RegConsoleCmd("sm_stopmusic", Command_Sounds, "");
-	RegConsoleCmd("sm_stopsounds", Command_Sounds, "");
+	RegConsoleCmd("sm_snd", Command_Sounds);
+	RegConsoleCmd("sm_sound", Command_Sounds);
+	RegConsoleCmd("sm_sounds", Command_Sounds);
+	RegConsoleCmd("sm_music", Command_Sounds);
+	RegConsoleCmd("sm_stopmusic", Command_Sounds);
+	RegConsoleCmd("sm_stopsounds", Command_Sounds);
 
 	// Cookie
 	gH_SettingsCookie = RegClientCookie("sounds_setting", "Sound Manager Settings", CookieAccess_Protected);
@@ -93,12 +93,14 @@ public void OnPluginStart()
 
 		for(int i = 1; i <= MaxClients; i++)
 		{
-			if(IsValidClient(i))
+			if(!IsValidClient(i))
 			{
-				if(AreClientCookiesCached(i))
-				{
-					OnClientCookiesCached(i);
-				}
+				continue;
+			}
+
+			if(AreClientCookiesCached(i))
+			{
+				OnClientCookiesCached(i);
 			}
 		}
 	}
@@ -115,7 +117,7 @@ public void OnEntityCreated(int entity, const char[] classname)
 public void OnClientDisconnect_Post(int client)
 {
 	gI_Settings[client] = 0;
-	CheckHooks();
+	CheckShotgunShotHook();
 }
 
 public void OnClientCookiesCached(int client)
@@ -262,6 +264,7 @@ public MRESReturn DHook_AcceptInput(int pThis, Handle hReturn, Handle hParams)
 				{
 					PrintToChat(client, "[Debug] Output Blocked (%s)", sParameter);
 				}
+
 				DHookSetReturn(hReturn, false);
 				return MRES_Supercede;
 			}
@@ -280,29 +283,35 @@ public Action Command_Sounds(int client, int args)
 	menu.SetTitle("Sound Manager");
 
 	char sDisplay[64];
-	FormatEx(sDisplay, sizeof(sDisplay), "Soundscapes: [%s]", gI_Settings[client] & Mute_SoundScapes ? "Muted" : "On");
-	menu.AddItem("soundscapes", sDisplay);
+	char sInfo[16];
+
+	FormatEx(sDisplay, 64, "Soundscapes: [%s]", gI_Settings[client] & Mute_SoundScapes ? "Muted" : "On");
+	IntToString(Mute_SoundScapes, sInfo, 16);
+	menu.AddItem(sInfo, sDisplay);
 	
-	FormatEx(sDisplay, sizeof(sDisplay), "Ambient Sounds: [%s]", gI_Settings[client] & Mute_AmbientSounds ? "Muted" : "On");
-	menu.AddItem("ambient", sDisplay);
+	FormatEx(sDisplay, 64, "Ambient Sounds: [%s]", gI_Settings[client] & Mute_AmbientSounds ? "Muted" : "On");
+	IntToString(Mute_AmbientSounds, sInfo, 16);
+	menu.AddItem(sInfo, sDisplay);
 	
-	FormatEx(sDisplay, sizeof(sDisplay), "Gun Sounds: [%s]", gI_Settings[client] & Mute_GunSounds ? "Muted" : "On");
-	menu.AddItem("gun", sDisplay);
+	FormatEx(sDisplay, 64, "Gun Sounds: [%s]", gI_Settings[client] & Mute_GunSounds ? "Muted" : "On");
+	IntToString(Mute_GunSounds, sInfo, 16);
+	menu.AddItem(sInfo, sDisplay);
 	
-	FormatEx(sDisplay, sizeof(sDisplay), "Trigger Sounds: [%s]", gI_Settings[client] & Mute_TriggerSounds ? "Muted" : "On");
-	menu.AddItem("trigger", sDisplay);
+	FormatEx(sDisplay, 64, "Trigger Sounds: [%s]", gI_Settings[client] & Mute_TriggerSounds ? "Muted" : "On");
+	IntToString(Mute_TriggerSounds, sInfo, 16);
+	menu.AddItem(sInfo, sDisplay);
 	
 	if(CheckCommandAccess(client, "soundmanager_debug", ADMFLAG_RCON))
 	{
-		FormatEx(sDisplay, sizeof(sDisplay), "Debug Prints: [%s]", gI_Settings[client] & Debug ? "Yes" : "No");
-		menu.AddItem("debug", sDisplay);
+		FormatEx(sDisplay, 64, "Debug Prints: [%s]", gI_Settings[client] & Debug ? "Yes" : "No");
+		IntToString(Debug, sInfo, 16);
+		menu.AddItem(sInfo, sDisplay);
 	}
 	
-	FormatEx(sDisplay, sizeof(sDisplay), "Block All sound packets: [%s]", gI_Settings[client] & Mute_AllPackets ? "Yes" : "No");
-	menu.AddItem("all", sDisplay);
-	
-	menu.Pagination = MENU_NO_PAGINATION;
-	menu.ExitButton = true;
+	FormatEx(sDisplay, 64, "Block All sound packets: [%s]", gI_Settings[client] & Mute_AllPackets ? "Yes" : "No");
+	IntToString(Mute_AllPackets, sInfo, 16);
+	menu.AddItem(sInfo, sDisplay);
+
 	menu.Display(client, MENU_TIME_FOREVER);
 	return Plugin_Handled;
 }
@@ -314,30 +323,12 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 		char sInfo[16];
 		menu.GetItem(param2, sInfo, 16);
 
-		if(StrEqual(sInfo, "soundscapes"))
+		int iOption = StringToInt(sInfo);
+		gI_Settings[param1] ^= iOption;
+
+		if(iOption == Mute_GunSounds)
 		{
-			gI_Settings[param1] ^= Mute_SoundScapes;
-		}
-		else if(StrEqual(sInfo, "ambient"))
-		{
-			gI_Settings[param1] ^= Mute_AmbientSounds;
-		}
-		else if(StrEqual(sInfo, "gun"))
-		{
-			gI_Settings[param1] ^= Mute_GunSounds;
-			CheckHooks();
-		}
-		else if(StrEqual(sInfo, "trigger"))
-		{
-			gI_Settings[param1] ^= Mute_TriggerSounds;
-		}		
-		else if(StrEqual(sInfo, "debug"))
-		{
-			gI_Settings[param1] ^= Debug;
-		}
-		else if(StrEqual(sInfo, "all"))
-		{
-			gI_Settings[param1] ^= Mute_AllPackets;
+			CheckShotgunShotHook();
 		}
 
 		char sCookie[16];
@@ -544,7 +535,7 @@ public Action SoundHook_Normal(int clients[MAXPLAYERS], int &numClients, char sa
 }
 //----------------------------------------------------
 
-void CheckHooks()
+void CheckShotgunShotHook()
 {
 	bool bShouldHook = false;
 
