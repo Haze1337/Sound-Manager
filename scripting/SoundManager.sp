@@ -288,6 +288,11 @@ public MRESReturn DHook_AcceptInput(int pThis, Handle hReturn, Handle hParams)
 //------------------------MENU-------------------------
 public Action Command_Sounds(int client, int args)
 {
+	if(!IsValidClient(client))
+	{
+		return Plugin_Handled;
+	}
+
 	Menu menu = new Menu(MenuHandler_Sounds);
 	menu.SetTitle("Sound Manager\n \n");
 
