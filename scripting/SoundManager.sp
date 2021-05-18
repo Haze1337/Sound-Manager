@@ -5,6 +5,7 @@
 #include <dhooks>
 
 #pragma newdecls required
+#pragma semicolon 1
 
 public Plugin myinfo = 
 {
@@ -22,24 +23,24 @@ public Plugin myinfo =
 #define Mute_AllPackets					(1 << 4)
 #define Debug							(1 << 5)
 
-//Player settings
+// Player settings
 int gI_Settings[MAXPLAYERS+1];
 
-//Debug
+// Debug
 int gI_LastSoundScape[MAXPLAYERS+1];
 
-//Cookie
+// Cookie
 Handle gH_SettingsCookie = null;
 
-//Dhooks
+// Dhooks
 Handle gH_AcceptInput = null;
 
-//For Sounds
+// For Sounds
 bool gB_ShouldHookStotgunShot = false;
 ArrayList gA_PlayEverywhereAmbients = null;
 ArrayList gA_AmbientEntities = null;
 
-//Late Load
+// Late Load
 bool gB_LateLoad = false;
 
 //-----------------------FORWARDS-------------------------
@@ -50,35 +51,35 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
-	//Commands
+	// Commands
 	RegConsoleCmd("sm_snd", Command_Sounds, "");
 	RegConsoleCmd("sm_sound", Command_Sounds, "");
 	RegConsoleCmd("sm_sounds", Command_Sounds, "");
 	RegConsoleCmd("sm_music", Command_Sounds, "");
 	RegConsoleCmd("sm_stopmusic", Command_Sounds, "");
 	RegConsoleCmd("sm_stopsounds", Command_Sounds, "");
-	
-	//Cookie
+
+	// Cookie
 	gH_SettingsCookie = RegClientCookie("sounds_setting", "Sound Manager Settings", CookieAccess_Protected);
-	
-	//ArrayList for ambient_generic's with spawnflags & 1 (play everywhere [1]) 
+
+	// ArrayList for ambient_generic's with spawnflags & 1 (play everywhere [1]) 
 	gA_PlayEverywhereAmbients = new ArrayList(ByteCountToCells(4));
-	
-	//ArrayList for ambient_generic's
+
+	// ArrayList for ambient_generic's
 	gA_AmbientEntities = new ArrayList(ByteCountToCells(4));
-	
-	//Hook round_start
+
+	// Hook round_start
 	HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
-	
-	//Dhooks
+
+	// Dhooks
 	HookSoundScapes();
 	HookAcceptInput();
-	
-	//Sound Hooks
+
+	// Sound Hooks
 	AddNormalSoundHook(SoundHook_Normal);
 	AddAmbientSoundHook(SoundHook_Ambient);
 	AddTempEntHook("Shotgun Shot", CSS_Hook_ShotgunShot);
-	
+
 	//Late Load
 	if(gB_LateLoad)
 	{
@@ -87,9 +88,9 @@ public void OnPluginStart()
 		{
 			DHookEntity(gH_AcceptInput, false, entity);
 		}
-		
+
 		Event_RoundStart(null, "", false);
-		
+
 		for(int i = 1; i <= MaxClients; i++)
 		{
 			if(IsValidClient(i))
@@ -132,12 +133,12 @@ public void OnClientCookiesCached(int client)
 	{
 		gI_Settings[client] = StringToInt(sCookie);
 	}
-	
+
 	if((gI_Settings[client] & Mute_GunSounds) && gB_ShouldHookStotgunShot == false)
 	{
 		gB_ShouldHookStotgunShot = true;
 	}
-	
+
 	if(gI_Settings[client] & Mute_AmbientSounds)
 	{
 		CreateTimer(1.0, Connect_MuteAmbient, GetClientSerial(client));
@@ -199,12 +200,12 @@ public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 		if(gI_Settings[client] & Mute_SoundScapes)
 		{
 			SetEntProp(client, Prop_Data, "soundscapeIndex", 138);
-			
+
 			if((gI_Settings[client] & Debug) && gI_LastSoundScape[client] != 138 && GetEntProp(client, Prop_Data, "soundscapeIndex") == 138)
 			{
 				PrintToChat(client, "[Debug] SoundScape Blocked (%d)", pThis);
 			}
-			
+
 			gI_LastSoundScape[client] = GetEntProp(client, Prop_Data, "soundscapeIndex");
 			return MRES_Supercede;
 		}
@@ -338,11 +339,11 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 		{
 			gI_Settings[param1] ^= Mute_AllPackets;
 		}
-		
+
 		char sCookie[16];
 		IntToString(gI_Settings[param1], sCookie, 16);
 		SetClientCookie(param1, gH_SettingsCookie, sCookie);
-		
+
 		Command_Sounds(param1, 0);
 	}
 
@@ -360,11 +361,11 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 {
 	gA_PlayEverywhereAmbients.Clear();
 	gA_AmbientEntities.Clear();
-	
+
 	// Find all ambient sounds played by the map.
 	char sSound[PLATFORM_MAX_PATH];
 	int entity = INVALID_ENT_REFERENCE;
-	
+
 	while((entity = FindEntityByClassname(entity, "ambient_generic")) != INVALID_ENT_REFERENCE)
 	{
 		int spawnflags = GetEntProp(entity, Prop_Data, "m_spawnflags");
@@ -373,9 +374,9 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			//PrintToServer("ambient_generic (%d): %d", entity, spawnflags);
 			gA_PlayEverywhereAmbients.Push(EntIndexToEntRef(entity));
 		}
-		
+
 		GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, sizeof(sSound));
-		
+
 		int len = strlen(sSound);
 		if(len > 4 && (StrEqual(sSound[len-3], "mp3") || StrEqual(sSound[len-3], "wav")))
 		{
@@ -393,21 +394,21 @@ public Action CSS_Hook_ShotgunShot(const char[] te_name, const int[] Players, in
 	{
 		return Plugin_Continue;
 	}
-	
+
 	// Check which clients need to be excluded.
 	int newTotal = 0;
 	int[] newClients = new int[MaxClients];
-	
+
 	for(int i = 0; i < numClients; i++)
 	{
 		int client = Players[i];
-		
+
 		if(!(gI_Settings[client] & Mute_GunSounds))
 		{
 			newClients[newTotal++] = client;
 		}
 	}
-	
+
 	// No clients were excluded.
 	if(newTotal == numClients)
 	{
@@ -418,7 +419,7 @@ public Action CSS_Hook_ShotgunShot(const char[] te_name, const int[] Players, in
 	{
 		return Plugin_Stop;
 	}
-	
+
 	// Re-broadcast to clients that still need it.
 	float vTemp[3];
 	TE_Start("Shotgun Shot");
@@ -433,27 +434,27 @@ public Action CSS_Hook_ShotgunShot(const char[] te_name, const int[] Players, in
 	TE_WriteFloat("m_fInaccuracy", TE_ReadFloat("m_fInaccuracy"));
 	TE_WriteFloat("m_fSpread", TE_ReadFloat("m_fSpread"));
 	TE_Send(newClients, newTotal, delay);
-	
+
 	return Plugin_Stop;
 }
 
 public Action Connect_MuteAmbient(Handle hTimer, any data)
 {
 	int client = GetClientFromSerial(data);
-	
+
 	if(IsValidClient(client))
 	{
 		char sSound[128];
-		
+
 		for(int i = 0; i < gA_PlayEverywhereAmbients.Length; i++)
 		{
 			int entity = EntRefToEntIndex(gA_PlayEverywhereAmbients.Get(i));
-			
+
 			if(entity != INVALID_ENT_REFERENCE)
 			{
 				GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, sizeof(sSound));
 				EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
-				
+
 				if(gI_Settings[client] & Debug)
 				{
 					PrintToChat(client, "[Debug] Ambient Blocked (%s)", sSound);
@@ -466,11 +467,11 @@ public Action Connect_MuteAmbient(Handle hTimer, any data)
 public Action Timer_MuteAmbient(Handle hTimer, any data)
 {
 	int entity = EntRefToEntIndex(data);
-	
+
 	if(entity != INVALID_ENT_REFERENCE)
 	{
 		char sSound[128];
-		
+
 		for(int client = 1; client <= MaxClients; client++)
 		{
 			if(IsValidClient(client))
@@ -479,7 +480,7 @@ public Action Timer_MuteAmbient(Handle hTimer, any data)
 				{
 					GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, sizeof(sSound));
 					EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
-					
+
 					if(gI_Settings[client] & Debug)
 					{
 						PrintToChat(client, "[Debug] Ambient Blocked (%s)", sSound);
@@ -496,7 +497,7 @@ public Action SoundHook_Ambient(char sample[PLATFORM_MAX_PATH], int &entity, flo
 	{
 		return Plugin_Continue;
 	}
-	
+
 	CreateTimer(0.1, Timer_MuteAmbient, EntIndexToEntRef(entity));
 
 	return Plugin_Continue;
@@ -508,7 +509,7 @@ public Action SoundHook_Normal(int clients[MAXPLAYERS], int &numClients, char sa
 	{
 		return Plugin_Continue;
 	}
-	
+
 	if(IsValidEntity(entity) && IsValidEdict(entity))
 	{
 		char sClassname[64];
@@ -546,7 +547,7 @@ public Action SoundHook_Normal(int clients[MAXPLAYERS], int &numClients, char sa
 void CheckHooks()
 {
 	bool bShouldHook = false;
-	
+
 	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(IsClientInGame(i))
@@ -558,7 +559,7 @@ void CheckHooks()
 			}
 		}
 	}
-	
+
 	// Fake (un)hook because toggling actual hooks will cause server instability.
 	gB_ShouldHookStotgunShot = bShouldHook;
 }
