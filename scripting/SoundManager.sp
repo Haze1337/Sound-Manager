@@ -551,7 +551,7 @@ public Action SoundHook_Normal(int clients[MAXPLAYERS], int &numClients, char sa
 		numClients--;
 		i--;
 	}
-		
+
 	return (numClients > 0) ? Plugin_Changed : Plugin_Stop;
 }
 //----------------------------------------------------
