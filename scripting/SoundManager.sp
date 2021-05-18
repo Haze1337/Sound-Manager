@@ -193,31 +193,35 @@ void HookSoundScapes()
 //void CEnvSoundscape::UpdateForPlayer( ss_update_t &update )
 public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 {
-	if(IsValidEdict(pThis))
+	if(!IsValidEdict(pThis))
 	{
-		int client = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_CBaseEntityPtr);
-
-		DHookSetParamObjectPtrVar(hParams, 1, 4, ObjectValueType_CBaseEntityPtr, 0);
-		
-		if(gI_Settings[client] & Mute_SoundScapes)
-		{
-			SetEntProp(client, Prop_Data, "soundscapeIndex", 138);
-
-			if((gI_Settings[client] & Debug) && gI_LastSoundScape[client] != 138 && GetEntProp(client, Prop_Data, "soundscapeIndex") == 138)
-			{
-				PrintToChat(client, "[Debug] SoundScape Blocked (%d)", pThis);
-			}
-
-			gI_LastSoundScape[client] = GetEntProp(client, Prop_Data, "soundscapeIndex");
-			return MRES_Supercede;
-		}
-		else
-		{
-			gI_LastSoundScape[client] = GetEntProp(client, Prop_Data, "soundscapeIndex");
-			return MRES_ChangedHandled;
-		}
+		return MRES_Ignored;
 	}
-	return MRES_Ignored;
+
+	int client = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_CBaseEntityPtr);
+
+	DHookSetParamObjectPtrVar(hParams, 1, 4, ObjectValueType_CBaseEntityPtr, 0);
+
+	MRESReturn ret = MRES_Ignored;
+
+	if(gI_Settings[client] & Mute_SoundScapes)
+	{
+		SetEntProp(client, Prop_Data, "soundscapeIndex", 138);
+
+		if((gI_Settings[client] & Debug) && gI_LastSoundScape[client] != 138 && GetEntProp(client, Prop_Data, "soundscapeIndex") == 138)
+		{
+			PrintToChat(client, "[Debug] SoundScape Blocked (%d)", pThis);
+		}
+
+		ret = MRES_Supercede;
+	}
+	else
+	{
+		ret = MRES_ChangedHandled;
+	}
+
+	gI_LastSoundScape[client] = GetEntProp(client, Prop_Data, "soundscapeIndex");
+	return ret;
 }
 //---------------------------------------------------------------
 
@@ -250,28 +254,33 @@ void HookAcceptInput()
 // virtual bool AcceptInput( const char *szInputName, CBaseEntity *pActivator, CBaseEntity *pCaller, variant_t Value, int outputID );
 public MRESReturn DHook_AcceptInput(int pThis, Handle hReturn, Handle hParams)
 {
-	if(!DHookIsNullParam(hParams, 2) && !DHookIsNullParam(hParams, 3))
+	if(DHookIsNullParam(hParams, 2) || DHookIsNullParam(hParams, 3))
 	{
-		char sParameter[128];
-		DHookGetParamObjectPtrString(hParams, 4, 0, ObjectValueType_String, sParameter, sizeof(sParameter));
-
-		if(StrContains(sParameter, "play ") != -1)
-		{
-			int client = DHookGetParam(hParams, 2);
-			if(gI_Settings[client] & Mute_TriggerSounds)
-			{
-				if(gI_Settings[client] & Debug)
-				{
-					PrintToChat(client, "[Debug] Output Blocked (%s)", sParameter);
-				}
-
-				DHookSetReturn(hReturn, false);
-				return MRES_Supercede;
-			}
-		}
-		//PrintToChatAll("Activator: \x04%d\x01 \x04%s\x01", client, sParameter);
+		return MRES_Ignored;
 	}
 
+	int client = DHookGetParam(hParams, 2);
+
+	if(gI_Settings[client] & Mute_TriggerSounds == 0)
+	{
+		return MRES_Ignored;
+	}
+
+	char sParameter[128];
+	DHookGetParamObjectPtrString(hParams, 4, 0, ObjectValueType_String, sParameter, sizeof(sParameter));
+
+	if(StrContains(sParameter, "play ") != -1)
+	{
+		if(gI_Settings[client] & Debug)
+		{
+			PrintToChat(client, "[Debug] Output Blocked (%s)", sParameter);
+		}
+
+		DHookSetReturn(hReturn, false);
+		return MRES_Supercede;
+	}
+
+	//PrintToChatAll("Activator: \x04%d\x01 \x04%s\x01", client, sParameter);
 	return MRES_Ignored;
 }
 //-----------------------------------------------------
@@ -551,13 +560,15 @@ void CheckShotgunShotHook()
 
 	for(int i = 1; i <= MaxClients; i++)
 	{
-		if(IsClientInGame(i))
+		if(!IsClientInGame(i))
 		{
-			if(gI_Settings[i] & Mute_GunSounds)
-			{
-				bShouldHook = true;
-				break;
-			}
+			continue;
+		}
+
+		if(gI_Settings[i] & Mute_GunSounds)
+		{
+			bShouldHook = true;
+			break;
 		}
 	}
 
