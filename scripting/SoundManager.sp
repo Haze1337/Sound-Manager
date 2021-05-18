@@ -347,7 +347,7 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 		Command_Sounds(param1, 0);
 	}
 
-	else if(action == MenuAction_Cancel)
+	else if(action == MenuAction_End)
 	{
 		delete menu;
 	}
