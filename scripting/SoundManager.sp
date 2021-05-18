@@ -508,37 +508,40 @@ public Action SoundHook_Normal(int clients[MAXPLAYERS], int &numClients, char sa
 		return Plugin_Continue;
 	}
 
-	if(IsValidEntity(entity) && IsValidEdict(entity))
+	if(!IsValidEntity(entity) || !IsValidEdict(entity))
 	{
-		char sClassname[64];
-		GetEntityClassname(entity, sClassname, sizeof(sClassname));
-		if(StrEqual(sClassname, "ambient_generic"))
+		return Plugin_Continue;
+	}
+
+	char sClassname[64];
+	GetEntityClassname(entity, sClassname, sizeof(sClassname));
+	if(StrEqual(sClassname, "ambient_generic"))
+	{
+		return Plugin_Continue;
+	}
+
+	for(int i = 0; i < numClients; i++)
+	{
+		if(gI_Settings[clients[i]] & Mute_AllPackets == 0)
 		{
-			return Plugin_Continue;
+			continue;
 		}
 
-		for(int i = 0; i < numClients; i++)
+		if(gI_Settings[clients[i]] & Debug)
 		{
-			if(gI_Settings[clients[i]] & Mute_AllPackets)
-			{
-				if(gI_Settings[clients[i]] & Debug)
-				{
-					PrintToChat(clients[i], "[Debug] Sound Blocked (%s)", sample);
-				}
-				// Remove the client from the array.
-				for(int j = i; j < numClients-1; j++)
-				{
-					clients[j] = clients[j+1];
-				}
-				numClients--;
-				i--;
-			}
+			PrintToChat(clients[i], "[Debug] Sound Blocked (%s)", sample);
 		}
-		
-		return (numClients > 0) ? Plugin_Changed : Plugin_Stop;
+
+		// Remove the client from the array.
+		for(int j = i; j < numClients-1; j++)
+		{
+			clients[j] = clients[j+1];
+		}
+		numClients--;
+		i--;
 	}
-	
-	return Plugin_Continue;
+		
+	return (numClients > 0) ? Plugin_Changed : Plugin_Stop;
 }
 //----------------------------------------------------
 
