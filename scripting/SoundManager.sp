@@ -38,7 +38,6 @@ Handle gH_AcceptInput = null;
 // For Sounds
 bool gB_ShouldHookStotgunShot = false;
 ArrayList gA_PlayEverywhereAmbients = null;
-ArrayList gA_AmbientEntities = null;
 
 // Late Load
 bool gB_LateLoad = false;
@@ -64,10 +63,7 @@ public void OnPluginStart()
 
 	// ArrayList for ambient_generic's with spawnflags & 1 (play everywhere [1]) 
 	gA_PlayEverywhereAmbients = new ArrayList(ByteCountToCells(4));
-
-	// ArrayList for ambient_generic's
-	gA_AmbientEntities = new ArrayList(ByteCountToCells(4));
-
+	
 	// Hook round_start
 	HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 
@@ -365,10 +361,8 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	gA_PlayEverywhereAmbients.Clear();
-	gA_AmbientEntities.Clear();
 
 	// Find all ambient sounds played by the map.
-	char sSound[PLATFORM_MAX_PATH];
 	int entity = INVALID_ENT_REFERENCE;
 
 	while((entity = FindEntityByClassname(entity, "ambient_generic")) != INVALID_ENT_REFERENCE)
@@ -378,14 +372,6 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 		{
 			//PrintToServer("ambient_generic (%d): %d", entity, spawnflags);
 			gA_PlayEverywhereAmbients.Push(EntIndexToEntRef(entity));
-		}
-
-		GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, sizeof(sSound));
-
-		int len = strlen(sSound);
-		if(len > 4 && (StrEqual(sSound[len-3], "mp3") || StrEqual(sSound[len-3], "wav")))
-		{
-			gA_AmbientEntities.Push(EntIndexToEntRef(entity));
 		}
 	}
 }
@@ -511,7 +497,19 @@ public Action SoundHook_Ambient(char sample[PLATFORM_MAX_PATH], int &entity, flo
 	{
 		return Plugin_Continue;
 	}
-
+	
+	if(!IsValidEdict(entity) || entity == INVALID_ENT_REFERENCE)
+	{
+		return Plugin_Continue;
+	}
+	
+	char sClassname[64];
+	GetEntityClassname(entity, sClassname, 64);
+	if(!StrEqual(sClassname, "ambient_generic"))
+	{
+		return Plugin_Continue;
+	}
+	
 	CreateTimer(0.1, MuteAmbientTimer, EntIndexToEntRef(entity));
 
 	return Plugin_Continue;
