@@ -478,11 +478,6 @@ public Action MuteAmbientTimer(Handle hTimer, any data)
 		return;
 	}
 
-	if(!HasEntProp(entity, Prop_Data, "m_iszSound"))
-	{
-		return;
-	}
-
 	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(!IsValidClient(i))
@@ -509,9 +504,7 @@ public Action SoundHook_Ambient(char sample[PLATFORM_MAX_PATH], int &entity, flo
 		return Plugin_Continue;
 	}
 
-	char sClassname[64];
-	GetEntityClassname(entity, sClassname, 64);
-	if(!StrEqual(sClassname, "ambient_generic"))
+	if(!HasEntProp(entity, Prop_Data, "m_iszSound"))
 	{
 		return Plugin_Continue;
 	}
