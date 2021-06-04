@@ -14,6 +14,8 @@ public Plugin myinfo =
 	url = ""
 }
 
+#define EMPTY_SOUNDSCAPE				138
+
 #define Mute_Soundscapes				(1 << 0)
 #define Mute_AmbientSounds				(1 << 1)
 #define Mute_GunSounds					(1 << 2)
@@ -65,11 +67,9 @@ public void OnPluginStart()
 
 	// Hook round_start
 	HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
-	
+
 	// Dhooks
-	HookSoundScapes();
-	HookAcceptInput();
-	HookSendSound();
+	LoadDhooks();
 
 	// Sound Hook
 	AddTempEntHook("Shotgun Shot", CSS_Hook_ShotgunShot);
@@ -142,21 +142,27 @@ public void OnClientCookiesCached(int client)
 }
 //-------------------------------------------------------------
 
-//-------------------------SOUNDSCAPES-------------------------
-void HookSoundScapes()
+void LoadDhooks()
 {
 	Handle hGameData = LoadGameConfigFile("SoundManager.games");
 	if(!hGameData)
 	{
-		delete hGameData;
 		SetFailState("Failed to load SoundManager gamedata.");
 	}
 
+	HookSoundScapes(hGameData);
+	HookAcceptInput(hGameData);
+	HookSendSound(hGameData);
+
+	delete hGameData;
+}
+
+//-------------------------SOUNDSCAPES-------------------------
+void HookSoundScapes(Handle hGameData)
+{
 	Handle hFunction = DHookCreateDetour(Address_Null, CallConv_THISCALL, ReturnType_Void, ThisPointer_CBaseEntity); 
 	DHookSetFromConf(hFunction, hGameData, SDKConf_Signature, "CEnvSoundscape::UpdateForPlayer");
 	DHookAddParam(hFunction, HookParamType_ObjectPtr);
-
-	delete hGameData;
 
 	if(!DHookEnableDetour(hFunction, false, DHook_UpdateForPlayer))
 	{
@@ -178,9 +184,11 @@ public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 
 	if(gI_Settings[client] & Mute_Soundscapes)
 	{
-		SetEntProp(client, Prop_Data, "soundscapeIndex", 138);
+		SetEntProp(client, Prop_Data, "soundscapeIndex", EMPTY_SOUNDSCAPE);
 
-		if((gI_Settings[client] & Debug) && gI_LastSoundscape[client] != 138 && GetEntProp(client, Prop_Data, "soundscapeIndex") == 138)
+		if((gI_Settings[client] & Debug)
+			&& gI_LastSoundscape[client] != EMPTY_SOUNDSCAPE
+			&& GetEntProp(client, Prop_Data, "soundscapeIndex") == EMPTY_SOUNDSCAPE)
 		{
 			PrintToChat(client, "[Debug] Soundscape Blocked (%d)", pThis);
 		}
@@ -198,19 +206,10 @@ public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 //---------------------------------------------------------------
 
 //------------------------TRIGGER OUTPUTS------------------------
-void HookAcceptInput()
+void HookAcceptInput(Handle hGameData)
 {
-	Handle hGameData = LoadGameConfigFile("SoundManager.games");
-	if(!hGameData)
-	{
-		delete hGameData;
-		SetFailState("Failed to load SoundManager gamedata.");
-	}
-
 	int offset = GameConfGetOffset(hGameData, "AcceptInput");
-	
-	delete hGameData;
-	
+
 	if(offset == 0) 
 	{
 		SetFailState("Failed to load \"AcceptInput\", invalid offset.");
@@ -263,34 +262,26 @@ public MRESReturn DHook_AcceptInput(int pThis, Handle hReturn, Handle hParams)
 //-----------------------------------------------------
 
 //----------------AMBIENT/NORMAL SOUNDS----------------
-void HookSendSound()
+void HookSendSound(Handle hGameData)
 {
-	Handle hGameData = LoadGameConfigFile("SoundManager.games");
-	if(!hGameData)
-	{
-		delete hGameData;
-		SetFailState("Failed to load SoundManager gamedata.");
-	}
-
 	Handle hFunction = DHookCreateDetour(Address_Null, CallConv_THISCALL, ReturnType_Void, ThisPointer_Address); 
 	DHookSetFromConf(hFunction, hGameData, SDKConf_Signature, "CGameClient::SendSound");
 	DHookAddParam(hFunction, HookParamType_ObjectPtr);
 	DHookAddParam(hFunction, HookParamType_Bool);
 
-	StartPrepSDKCall(SDKCall_Raw);
-	PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "CBaseClient::GetPlayerSlot");
-	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
-
-	delete hGameData;
-
-	if (!(gH_GetPlayerSlot = EndPrepSDKCall()))
-	{
-		SetFailState("Could not initialize call to CBaseClient::GetPlayerSlot.");
-	}
-
 	if(!DHookEnableDetour(hFunction, false, DHook_SendSound))
 	{
 		SetFailState("Couldn't enable CGameClient::SendSound detour.");
+	}
+
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "CBaseClient::GetPlayerSlot");
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
+	gH_GetPlayerSlot = EndPrepSDKCall();
+
+	if(gH_GetPlayerSlot == null)
+	{
+		SetFailState("Could not initialize call to CBaseClient::GetPlayerSlot.");
 	}
 }
 
@@ -334,6 +325,7 @@ public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 			ret = MRES_Supercede;
 		}
 	}
+
 	return ret;
 }
 //-----------------------------------------------------
@@ -351,7 +343,7 @@ public Action Command_Sounds(int client, int args)
 
 	char sDisplay[64];
 	char sInfo[16];
-	
+
 	FormatEx(sDisplay, 64, "Soundscapes: [%s]", gI_Settings[client] & Mute_Soundscapes ? "Muted" : "On");
 	IntToString(Mute_Soundscapes, sInfo, 16);
 	menu.AddItem(sInfo, sDisplay);
