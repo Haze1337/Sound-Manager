@@ -14,6 +14,8 @@ public Plugin myinfo =
 	url = ""
 }
 
+#define EMPTY_SOUNDSCAPE				138
+
 #define Mute_Soundscapes				(1 << 0)
 #define Mute_AmbientSounds				(1 << 1)
 #define Mute_GunSounds					(1 << 2)
@@ -182,9 +184,11 @@ public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 
 	if(gI_Settings[client] & Mute_Soundscapes)
 	{
-		SetEntProp(client, Prop_Data, "soundscapeIndex", 138);
+		SetEntProp(client, Prop_Data, "soundscapeIndex", EMPTY_SOUNDSCAPE);
 
-		if((gI_Settings[client] & Debug) && gI_LastSoundscape[client] != 138 && GetEntProp(client, Prop_Data, "soundscapeIndex") == 138)
+		if((gI_Settings[client] & Debug)
+			&& gI_LastSoundscape[client] != EMPTY_SOUNDSCAPE
+			&& GetEntProp(client, Prop_Data, "soundscapeIndex") == EMPTY_SOUNDSCAPE)
 		{
 			PrintToChat(client, "[Debug] Soundscape Blocked (%d)", pThis);
 		}
