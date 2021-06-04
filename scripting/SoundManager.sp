@@ -65,7 +65,7 @@ public void OnPluginStart()
 
 	// Hook round_start
 	HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
-	
+
 	// Dhooks
 	HookSoundScapes();
 	HookAcceptInput();
@@ -208,9 +208,9 @@ void HookAcceptInput()
 	}
 
 	int offset = GameConfGetOffset(hGameData, "AcceptInput");
-	
+
 	delete hGameData;
-	
+
 	if(offset == 0) 
 	{
 		SetFailState("Failed to load \"AcceptInput\", invalid offset.");
@@ -334,6 +334,7 @@ public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 			ret = MRES_Supercede;
 		}
 	}
+
 	return ret;
 }
 //-----------------------------------------------------
@@ -351,7 +352,7 @@ public Action Command_Sounds(int client, int args)
 
 	char sDisplay[64];
 	char sInfo[16];
-	
+
 	FormatEx(sDisplay, 64, "Soundscapes: [%s]", gI_Settings[client] & Mute_Soundscapes ? "Muted" : "On");
 	IntToString(Mute_Soundscapes, sInfo, 16);
 	menu.AddItem(sInfo, sDisplay);
