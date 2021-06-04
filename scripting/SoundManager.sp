@@ -148,7 +148,6 @@ void HookSoundScapes()
 	Handle hGameData = LoadGameConfigFile("SoundManager.games");
 	if(!hGameData)
 	{
-		delete hGameData;
 		SetFailState("Failed to load SoundManager gamedata.");
 	}
 
@@ -156,12 +155,12 @@ void HookSoundScapes()
 	DHookSetFromConf(hFunction, hGameData, SDKConf_Signature, "CEnvSoundscape::UpdateForPlayer");
 	DHookAddParam(hFunction, HookParamType_ObjectPtr);
 
-	delete hGameData;
-
 	if(!DHookEnableDetour(hFunction, false, DHook_UpdateForPlayer))
 	{
 		SetFailState("Couldn't enable CEnvSoundscape::UpdateForPlayer detour.");
 	}
+
+	delete hGameData;
 }
 
 //void CEnvSoundscape::UpdateForPlayer( ss_update_t &update )
@@ -203,13 +202,10 @@ void HookAcceptInput()
 	Handle hGameData = LoadGameConfigFile("SoundManager.games");
 	if(!hGameData)
 	{
-		delete hGameData;
 		SetFailState("Failed to load SoundManager gamedata.");
 	}
 
 	int offset = GameConfGetOffset(hGameData, "AcceptInput");
-
-	delete hGameData;
 
 	if(offset == 0) 
 	{
@@ -222,6 +218,8 @@ void HookAcceptInput()
 	DHookAddParam(gH_AcceptInput, HookParamType_CBaseEntity);
 	DHookAddParam(gH_AcceptInput, HookParamType_Object, 20, DHookPass_ByVal|DHookPass_ODTOR|DHookPass_OCTOR|DHookPass_OASSIGNOP);
 	DHookAddParam(gH_AcceptInput, HookParamType_Int);
+
+	delete hGameData;
 }
 
 // virtual bool AcceptInput( const char *szInputName, CBaseEntity *pActivator, CBaseEntity *pCaller, variant_t Value, int outputID );
@@ -268,7 +266,6 @@ void HookSendSound()
 	Handle hGameData = LoadGameConfigFile("SoundManager.games");
 	if(!hGameData)
 	{
-		delete hGameData;
 		SetFailState("Failed to load SoundManager gamedata.");
 	}
 
@@ -281,8 +278,6 @@ void HookSendSound()
 	PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "CBaseClient::GetPlayerSlot");
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
 
-	delete hGameData;
-
 	if (!(gH_GetPlayerSlot = EndPrepSDKCall()))
 	{
 		SetFailState("Could not initialize call to CBaseClient::GetPlayerSlot.");
@@ -292,6 +287,8 @@ void HookSendSound()
 	{
 		SetFailState("Couldn't enable CGameClient::SendSound detour.");
 	}
+
+	delete hGameData;
 }
 
 //void CGameClient::SendSound( SoundInfo_t &sound, bool isReliable )
