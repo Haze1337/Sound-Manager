@@ -274,18 +274,19 @@ void HookSendSound()
 	DHookAddParam(hFunction, HookParamType_ObjectPtr);
 	DHookAddParam(hFunction, HookParamType_Bool);
 
-	StartPrepSDKCall(SDKCall_Raw);
-	PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "CBaseClient::GetPlayerSlot");
-	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
-
-	if (!(gH_GetPlayerSlot = EndPrepSDKCall()))
-	{
-		SetFailState("Could not initialize call to CBaseClient::GetPlayerSlot.");
-	}
-
 	if(!DHookEnableDetour(hFunction, false, DHook_SendSound))
 	{
 		SetFailState("Couldn't enable CGameClient::SendSound detour.");
+	}
+
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "CBaseClient::GetPlayerSlot");
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
+	gH_GetPlayerSlot = EndPrepSDKCall();
+
+	if(gH_GetPlayerSlot == null)
+	{
+		SetFailState("Could not initialize call to CBaseClient::GetPlayerSlot.");
 	}
 
 	delete hGameData;
