@@ -170,6 +170,18 @@ void HookSoundScapes(Handle hGameData)
 	}
 }
 
+/*
+struct ss_update_t
+{
+    CBasePlayer       *pPlayer;             Offset: 0  | Size: 4
+    CEnvSoundscape    pCurrentSoundscape;   Offset: 4  | Size: 4
+    Vector            playerPosition;       Offset: 8  | Size: 12
+    float             currentDistance;      Offset: 20 | Size: 4
+    int               traceCount;           Offset: 24 | Size: 4
+    bool              bInRange;             Offset: 28 | Size: 4
+};
+*/
+
 //void CEnvSoundscape::UpdateForPlayer( ss_update_t &update )
 public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 {
@@ -284,6 +296,30 @@ void HookSendSound(Handle hGameData)
 		SetFailState("Could not initialize call to CBaseClient::GetPlayerSlot.");
 	}
 }
+
+/*
+struct SoundInfo_t
+{
+    int            nSequenceNumber;   Offset: 0  | Size: 4
+    int            nEntityIndex;      Offset: 4  | Size: 4
+    int            nChannel;          Offset: 8  | Size: 4
+    const char     *pszName;          Offset: 12 | Size: 4
+    Vector         vOrigin;           Offset: 16 | Size: 12
+    Vector         vDirection;        Offset: 28 | Size: 12
+    float          fVolume;           Offset: 40 | Size: 4
+    soundlevel_t   Soundlevel;        Offset: 44 | Size: 4
+    bool           bLooping;          Offset: 48 | Size: 1
+    int            nPitch;            Offset: 52 | Size: 4
+    int            nSpecialDSP;       Offset: 56 | Size: 4
+    Vector         vListenerOrigin;   Offset: 60 | Size: 12
+    int            nFlags;            Offset: 72 | Size: 4
+    int            nSoundNum;         Offset: 76 | Size: 4
+    float          fDelay;            Offset: 80 | Size: 4
+    bool           bIsSentence;       Offset: 84 | Size: 1
+    bool           bIsAmbient;        Offset: 85 | Size: 1
+    int            nSpeakerEntity;    Offset: 88 | Size: 4
+};
+*/
 
 //void CGameClient::SendSound( SoundInfo_t &sound, bool isReliable )
 public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
