@@ -10,6 +10,12 @@
 				"windows"		"\x55\x8B\xEC\x81\xEC\x80\x00\x00\x00\x56\x8B\xF1\x80\xBE\x88\x03\x00\x00\x00"
 				"linux"			"@_ZN14CEnvSoundscape15UpdateForPlayerER11ss_update_t"
 			}
+			"CGameClient::SendSound"
+			{
+				"library"		"engine"
+				"windows"		"\x55\x8B\xEC\x81\xEC\xC8\x00\x00\x00\x56\x8B\xF1"
+				"linux"			"@_ZN11CGameClient9SendSoundER11SoundInfo_tb"
+			}
 
 		}
 		"Offsets"
@@ -18,6 +24,12 @@
 			{
 				"windows"	"36"
 				"linux"		"37"
+			}
+			"CBaseClient::GetPlayerSlot"
+			{
+				"windows"	"14"
+				"linux"		"15"
+				"mac"		"15"
 			}
 		}
 	}

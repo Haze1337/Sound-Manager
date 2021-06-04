@@ -1,7 +1,5 @@
 #include <sourcemod>
 #include <clientprefs>
-
-#undef REQUIRE_EXTENSIONS
 #include <dhooks>
 
 #pragma newdecls required
@@ -34,6 +32,7 @@ Handle gH_SettingsCookie = null;
 
 // Dhooks
 Handle gH_AcceptInput = null;
+Handle gH_GetPlayerSlot = null;
 
 // Other
 bool gB_ShouldHookShotgunShot = false;
@@ -66,14 +65,13 @@ public void OnPluginStart()
 
 	// Hook round_start
 	HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
-
+	
 	// Dhooks
 	HookSoundScapes();
 	HookAcceptInput();
+	HookSendSound();
 
-	// Sound Hooks
-	AddNormalSoundHook(SoundHook_Normal);
-	AddAmbientSoundHook(SoundHook_Ambient);
+	// Sound Hook
 	AddTempEntHook("Shotgun Shot", CSS_Hook_ShotgunShot);
 
 	// Late Load
@@ -166,26 +164,6 @@ void HookSoundScapes()
 	}
 }
 
-//ss_update_t is a struct consisting of 3 int types, a vector, a float, and a bool 3*4+12+4+1 = 29
-/*struct ss_update_t
-{
-	CBasePlayer 	*pPlayer;
-	CEnvSoundscape	*pCurrentSoundscape;
-	Vector			playerPosition;
-	float			currentDistance;
-	int				traceCount; 
-	bool			bInRange;
-};*/
-
-/*
-	pPlayer: 			0  | 	Size: 4
-	pCurrentSoundscape: 4  | 	Size: 4
-	playerPosition: 	8  | 	Size: 12
-	currentDistance: 	20 | 	Size: 4
-	traceCount: 		24 | 	Size: 4
-	bInRange: 			28 | 	Size: 1
-*/
-
 //void CEnvSoundscape::UpdateForPlayer( ss_update_t &update )
 public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 {
@@ -195,8 +173,6 @@ public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 	}
 
 	int client = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_CBaseEntityPtr);
-
-	DHookSetParamObjectPtrVar(hParams, 1, 4, ObjectValueType_CBaseEntityPtr, 0);
 
 	MRESReturn ret = MRES_Ignored;
 
@@ -213,7 +189,7 @@ public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 	}
 	else
 	{
-		ret = MRES_ChangedHandled;
+		DHookSetParamObjectPtrVar(hParams, 1, 4, ObjectValueType_CBaseEntityPtr, 0);
 	}
 
 	gI_LastSoundscape[client] = GetEntProp(client, Prop_Data, "soundscapeIndex");
@@ -232,18 +208,19 @@ void HookAcceptInput()
 	}
 
 	int offset = GameConfGetOffset(hGameData, "AcceptInput");
+	
+	delete hGameData;
+	
 	if(offset == 0) 
 	{
 		SetFailState("Failed to load \"AcceptInput\", invalid offset.");
 	}
 
-	delete hGameData;
-
 	gH_AcceptInput = DHookCreate(offset, HookType_Entity, ReturnType_Bool, ThisPointer_CBaseEntity, DHook_AcceptInput);
 	DHookAddParam(gH_AcceptInput, HookParamType_CharPtr);
 	DHookAddParam(gH_AcceptInput, HookParamType_CBaseEntity);
 	DHookAddParam(gH_AcceptInput, HookParamType_CBaseEntity);
-	DHookAddParam(gH_AcceptInput, HookParamType_Object, 20, DHookPass_ByVal|DHookPass_ODTOR|DHookPass_OCTOR|DHookPass_OASSIGNOP); //varaint_t is a union of 12 (float[3]) plus two int type params 12 + 8 = 20
+	DHookAddParam(gH_AcceptInput, HookParamType_Object, 20, DHookPass_ByVal|DHookPass_ODTOR|DHookPass_OCTOR|DHookPass_OASSIGNOP);
 	DHookAddParam(gH_AcceptInput, HookParamType_Int);
 }
 
@@ -285,6 +262,82 @@ public MRESReturn DHook_AcceptInput(int pThis, Handle hReturn, Handle hParams)
 }
 //-----------------------------------------------------
 
+//----------------AMBIENT/NORMAL SOUNDS----------------
+void HookSendSound()
+{
+	Handle hGameData = LoadGameConfigFile("SoundManager.games");
+	if(!hGameData)
+	{
+		delete hGameData;
+		SetFailState("Failed to load SoundManager gamedata.");
+	}
+
+	Handle hFunction = DHookCreateDetour(Address_Null, CallConv_THISCALL, ReturnType_Void, ThisPointer_Address); 
+	DHookSetFromConf(hFunction, hGameData, SDKConf_Signature, "CGameClient::SendSound");
+	DHookAddParam(hFunction, HookParamType_ObjectPtr);
+	DHookAddParam(hFunction, HookParamType_Bool);
+
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "CBaseClient::GetPlayerSlot");
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
+
+	delete hGameData;
+
+	if (!(gH_GetPlayerSlot = EndPrepSDKCall()))
+	{
+		SetFailState("Could not initialize call to CBaseClient::GetPlayerSlot.");
+	}
+
+	if(!DHookEnableDetour(hFunction, false, DHook_SendSound))
+	{
+		SetFailState("Couldn't enable CGameClient::SendSound detour.");
+	}
+}
+
+//void CGameClient::SendSound( SoundInfo_t &sound, bool isReliable )
+public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
+{
+	Address pIClient = pThis + view_as<Address>(4);
+	int client = view_as<int>(SDKCall(gH_GetPlayerSlot, pIClient)) + 1;
+	if(!IsValidClient(client))
+	{
+		return MRES_Ignored;
+	}
+
+	if(DHookGetParamObjectPtrVar(hParams, 1, 40, ObjectValueType_Float) == 0.0)
+	{
+		return MRES_Ignored;
+	}
+	bool bIsAmbient = DHookGetParamObjectPtrVar(hParams, 1, 85, ObjectValueType_Bool);
+
+	MRESReturn ret = MRES_Ignored;
+
+	if(bIsAmbient)
+	{
+		if(gI_Settings[client] & Mute_AmbientSounds)
+		{
+			if(gI_Settings[client] & Debug)
+			{
+				PrintToChat(client, "[Debug] Ambient Blocked");
+			}
+			ret = MRES_Supercede;
+		}
+	}
+	else
+	{
+		if(gI_Settings[client] & Mute_AllPackets)
+		{
+			if(gI_Settings[client] & Debug)
+			{
+				PrintToChat(client, "[Debug] Sound Blocked");
+			}
+			ret = MRES_Supercede;
+		}
+	}
+	return ret;
+}
+//-----------------------------------------------------
+
 //------------------------MENU-------------------------
 public Action Command_Sounds(int client, int args)
 {
@@ -298,7 +351,7 @@ public Action Command_Sounds(int client, int args)
 
 	char sDisplay[64];
 	char sInfo[16];
-
+	
 	FormatEx(sDisplay, 64, "Soundscapes: [%s]", gI_Settings[client] & Mute_Soundscapes ? "Muted" : "On");
 	IntToString(Mute_Soundscapes, sInfo, 16);
 	menu.AddItem(sInfo, sDisplay);
@@ -378,7 +431,6 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 }
 //----------------------------------------------------
 
-//--------------------CALLBACKS-----------------------
 // Credits to GoD-Tony for everything related to stopping gun sounds
 public Action CSS_Hook_ShotgunShot(const char[] te_name, const int[] Players, int numClients, float delay)
 {
@@ -447,104 +499,17 @@ public Action ConnectMuteAmbientTimer(Handle hTimer, any data)
 
 		if(entity != INVALID_ENT_REFERENCE)
 		{
-			MuteAmbientForClient(client, entity);
+			char sSound[PLATFORM_MAX_PATH];
+			GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, PLATFORM_MAX_PATH);
+			EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
+
+			if(gI_Settings[client] & Debug)
+			{
+				PrintToChat(client, "[Debug] Ambient Blocked (%s)", sSound);
+			}
 		}
 	}
 }
-
-void MuteAmbientForClient(int client, int entity)
-{
-	if(!IsValidEdict(entity) || entity == INVALID_ENT_REFERENCE)
-	{
-		return;
-	}
-
-	char sSound[PLATFORM_MAX_PATH];
-	GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, PLATFORM_MAX_PATH);
-	EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
-
-	if(gI_Settings[client] & Debug)
-	{
-		PrintToChat(client, "[Debug] Ambient Blocked (%s)", sSound);
-	}
-}
-
-public Action MuteAmbientTimer(Handle hTimer, any data)
-{
-	int entity = EntRefToEntIndex(data);
-
-	if(!IsValidEdict(entity) || entity == INVALID_ENT_REFERENCE)
-	{
-		return;
-	}
-
-	for(int i = 1; i <= MaxClients; i++)
-	{
-		if(!IsValidClient(i))
-		{
-			continue;
-		}
-
-		if(gI_Settings[i] & Mute_AmbientSounds)
-		{
-			MuteAmbientForClient(i, entity);
-		}
-	}
-}
-
-public Action SoundHook_Ambient(char sample[PLATFORM_MAX_PATH], int &entity, float &volume, int &level, int &pitch, float pos[3], int &flags, float &delay)
-{
-	if(volume == 0.0)
-	{
-		return Plugin_Continue;
-	}
-
-	if(!IsValidEdict(entity) || entity == INVALID_ENT_REFERENCE)
-	{
-		return Plugin_Continue;
-	}
-
-	if(!HasEntProp(entity, Prop_Data, "m_iszSound"))
-	{
-		return Plugin_Continue;
-	}
-
-	CreateTimer(0.1, MuteAmbientTimer, EntIndexToEntRef(entity));
-
-	return Plugin_Continue;
-}
- 
-public Action SoundHook_Normal(int clients[MAXPLAYERS], int &numClients, char sample[PLATFORM_MAX_PATH], int &entity, int &channel, float &volume, int &level, int &pitch, int &flags, char soundEntry[PLATFORM_MAX_PATH], int &seed)
-{
-	if(volume == 0.0)
-	{
-		return Plugin_Continue;
-	}
-
-	for(int i = 0; i < numClients; i++)
-	{
-		if(gI_Settings[clients[i]] & Mute_AllPackets == 0)
-		{
-			continue;
-		}
-
-		if(gI_Settings[clients[i]] & Debug)
-		{
-			PrintToChat(clients[i], "[Debug] Sound Blocked (%s)", sample);
-		}
-
-		// Remove the client from the array.
-		for(int j = i; j < numClients-1; j++)
-		{
-			clients[j] = clients[j+1];
-		}
-		numClients--;
-		i--;
-	}
-
-	return (numClients > 0) ? Plugin_Changed : Plugin_Stop;
-}
-//----------------------------------------------------
 
 void CheckShotgunShotHook()
 {
