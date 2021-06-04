@@ -67,9 +67,7 @@ public void OnPluginStart()
 	HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 
 	// Dhooks
-	HookSoundScapes();
-	HookAcceptInput();
-	HookSendSound();
+	LoadDhooks();
 
 	// Sound Hook
 	AddTempEntHook("Shotgun Shot", CSS_Hook_ShotgunShot);
@@ -142,8 +140,7 @@ public void OnClientCookiesCached(int client)
 }
 //-------------------------------------------------------------
 
-//-------------------------SOUNDSCAPES-------------------------
-void HookSoundScapes()
+void LoadDhooks()
 {
 	Handle hGameData = LoadGameConfigFile("SoundManager.games");
 	if(!hGameData)
@@ -151,6 +148,16 @@ void HookSoundScapes()
 		SetFailState("Failed to load SoundManager gamedata.");
 	}
 
+	HookSoundScapes(hGameData);
+	HookAcceptInput(hGameData);
+	HookSendSound(hGameData);
+
+	delete hGameData;
+}
+
+//-------------------------SOUNDSCAPES-------------------------
+void HookSoundScapes(Handle hGameData)
+{
 	Handle hFunction = DHookCreateDetour(Address_Null, CallConv_THISCALL, ReturnType_Void, ThisPointer_CBaseEntity); 
 	DHookSetFromConf(hFunction, hGameData, SDKConf_Signature, "CEnvSoundscape::UpdateForPlayer");
 	DHookAddParam(hFunction, HookParamType_ObjectPtr);
@@ -159,8 +166,6 @@ void HookSoundScapes()
 	{
 		SetFailState("Couldn't enable CEnvSoundscape::UpdateForPlayer detour.");
 	}
-
-	delete hGameData;
 }
 
 //void CEnvSoundscape::UpdateForPlayer( ss_update_t &update )
@@ -197,14 +202,8 @@ public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 //---------------------------------------------------------------
 
 //------------------------TRIGGER OUTPUTS------------------------
-void HookAcceptInput()
+void HookAcceptInput(Handle hGameData)
 {
-	Handle hGameData = LoadGameConfigFile("SoundManager.games");
-	if(!hGameData)
-	{
-		SetFailState("Failed to load SoundManager gamedata.");
-	}
-
 	int offset = GameConfGetOffset(hGameData, "AcceptInput");
 
 	if(offset == 0) 
@@ -218,8 +217,6 @@ void HookAcceptInput()
 	DHookAddParam(gH_AcceptInput, HookParamType_CBaseEntity);
 	DHookAddParam(gH_AcceptInput, HookParamType_Object, 20, DHookPass_ByVal|DHookPass_ODTOR|DHookPass_OCTOR|DHookPass_OASSIGNOP);
 	DHookAddParam(gH_AcceptInput, HookParamType_Int);
-
-	delete hGameData;
 }
 
 // virtual bool AcceptInput( const char *szInputName, CBaseEntity *pActivator, CBaseEntity *pCaller, variant_t Value, int outputID );
@@ -261,14 +258,8 @@ public MRESReturn DHook_AcceptInput(int pThis, Handle hReturn, Handle hParams)
 //-----------------------------------------------------
 
 //----------------AMBIENT/NORMAL SOUNDS----------------
-void HookSendSound()
+void HookSendSound(Handle hGameData)
 {
-	Handle hGameData = LoadGameConfigFile("SoundManager.games");
-	if(!hGameData)
-	{
-		SetFailState("Failed to load SoundManager gamedata.");
-	}
-
 	Handle hFunction = DHookCreateDetour(Address_Null, CallConv_THISCALL, ReturnType_Void, ThisPointer_Address); 
 	DHookSetFromConf(hFunction, hGameData, SDKConf_Signature, "CGameClient::SendSound");
 	DHookAddParam(hFunction, HookParamType_ObjectPtr);
@@ -288,8 +279,6 @@ void HookSendSound()
 	{
 		SetFailState("Could not initialize call to CBaseClient::GetPlayerSlot.");
 	}
-
-	delete hGameData;
 }
 
 //void CGameClient::SendSound( SoundInfo_t &sound, bool isReliable )
