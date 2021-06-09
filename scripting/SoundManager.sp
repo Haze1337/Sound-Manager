@@ -391,7 +391,7 @@ void HookSendSound(Handle hGameData)
     Vector          vOrigin;           Offset: 0   | Size: 12
     Vector          vDirection         Offset: 12  | Size: 12
     Vector          vListenerOrigin;   Offset: 24  | Size: 12
-    const char      *pszName;		   Offset: 36  | Size: 4
+    const char      *pszName;          Offset: 36  | Size: 4
     float           fVolume;           Offset: 40  | Size: 4
     float           fDelay;            Offset: 44  | Size: 4
     float           fTickTime;         Offset: 48  | Size: 4
@@ -520,6 +520,8 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 			{
 				ClientCommand(param1, "playgamesound Music.StopAllExceptMusic");
 				ClientCommand(param1, "playgamesound Music.StopAllMusic");
+				Command_Sounds(param1, 0);
+				return 0;
 			}
 		}
 	
