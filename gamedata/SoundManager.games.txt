@@ -10,14 +10,15 @@
 				"windows"		"\x55\x8B\xEC\x81\xEC\x80\x00\x00\x00\x56\x8B\xF1\x80\xBE\x88\x03\x00\x00\x00"
 				"linux"			"@_ZN14CEnvSoundscape15UpdateForPlayerER11ss_update_t"
 			}
+
 			"CGameClient::SendSound"
 			{
 				"library"		"engine"
 				"windows"		"\x55\x8B\xEC\x81\xEC\xC8\x00\x00\x00\x56\x8B\xF1"
 				"linux"			"@_ZN11CGameClient9SendSoundER11SoundInfo_tb"
 			}
-
 		}
+		
 		"Offsets"
 		{
 			"AcceptInput"
@@ -25,11 +26,48 @@
 				"windows"	"36"
 				"linux"		"37"
 			}
+
 			"CBaseClient::GetPlayerSlot"
 			{
 				"windows"	"14"
 				"linux"		"15"
-				"mac"		"15"
+			}
+		}
+	}
+
+	"csgo"
+	{
+		"Signatures"
+		{
+			// "Setting invalid soundscape, %s, as the "...
+			"CEnvSoundscape::UpdateForPlayer"
+			{
+				"library"		"server"
+				"windows"		"\x55\x8B\xEC\x83\xE4\xF0\x81\xEC\xA8\x00\x00\x00\x56\x8B\xF1\x57\x80\xBE\xDC\x03\x00\x00\x00"
+				"linux"			"\x55\x89\xE5\x81\xEC\xE8\x00\x00\x00\x89\x5D\xF4\x8B\x5D\x08\x89\x75\xF8\x8B\x75\x0C\x89\x7D\xFC\x80\xBB\xF4\x03\x00\x00\x00"
+			}
+
+			// "CGameServer::BroadcastSound:  Recipient"...
+			"CGameClient::SendSound"
+			{
+				"library"		"engine"
+				"windows"		"\x55\x8B\xEC\x51\x56\x8B\xF1\x8B\x46\x04"
+				"linux"			"\x55\x89\xE5\x57\x56\x53\x83\xEC\x4C\x8B\x5D\x08\x8B\x7D\x0C\x0F\xB6\x75\x10"
+			}
+		}
+
+		"Offsets"
+		{
+			"AcceptInput"
+			{
+				"windows"	"41"
+				"linux"		"42"
+			}
+
+			"CBaseClient::GetPlayerSlot"
+			{
+				"windows"	"16"
+				"linux"		"17"
 			}
 		}
 	}

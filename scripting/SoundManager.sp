@@ -14,7 +14,8 @@ public Plugin myinfo =
 	url = ""
 }
 
-#define EMPTY_SOUNDSCAPE				138
+//CSS: 138: port.LightHum2
+//CSGO: 199: port.LightHum2
 
 #define Mute_Soundscapes				(1 << 0)
 #define Mute_AmbientSounds				(1 << 1)
@@ -23,8 +24,12 @@ public Plugin myinfo =
 #define Mute_AllPackets					(1 << 4)
 #define Debug							(1 << 5)
 
+// Engine
+EngineVersion gEV_Type;
+
 // Player settings
 int gI_Settings[MAXPLAYERS+1];
+bool gB_AlreadyMuted[MAXPLAYERS+1];
 
 // Debug
 int gI_LastSoundscape[MAXPLAYERS+1];
@@ -37,8 +42,10 @@ Handle gH_AcceptInput = null;
 Handle gH_GetPlayerSlot = null;
 
 // Other
+int gI_SilentSoundScape = 0;
 bool gB_ShouldHookShotgunShot = false;
 ArrayList gA_PlayEverywhereAmbients = null;
+bool gB_EntitiesFound = false;
 
 // Late Load
 bool gB_LateLoad = false;
@@ -51,6 +58,20 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
+	gEV_Type = GetEngineVersion();
+	if(gEV_Type == Engine_CSS)
+	{
+		gI_SilentSoundScape = 138;
+	}
+	else if(gEV_Type == Engine_CSGO)
+	{
+		gI_SilentSoundScape = 199;
+	}
+	else
+	{
+		SetFailState("This plugin is only supported for CSS and CSGO.");
+	}
+	
 	// Commands
 	RegConsoleCmd("sm_snd", Command_Sounds);
 	RegConsoleCmd("sm_sound", Command_Sounds);
@@ -62,11 +83,14 @@ public void OnPluginStart()
 	// Cookie
 	gH_SettingsCookie = RegClientCookie("sound_settings", "Sound Manager Settings", CookieAccess_Protected);
 
-	// ArrayList for ambient_generic's with spawnflags & 1 (play everywhere [1]) 
-	gA_PlayEverywhereAmbients = new ArrayList(ByteCountToCells(4));
+	if(gEV_Type == Engine_CSS)
+	{
+		// ArrayList for ambient_generic's with spawnflags & 1 (play everywhere [1]) 
+		gA_PlayEverywhereAmbients = new ArrayList(ByteCountToCells(4));
 
-	// Hook round_start
-	HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
+		// Hook round_start
+		HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
+	}
 
 	// Dhooks
 	LoadDhooks();
@@ -83,7 +107,10 @@ public void OnPluginStart()
 			DHookEntity(gH_AcceptInput, false, entity);
 		}
 
-		Event_RoundStart(null, "", false);
+		if(gEV_Type == Engine_CSS)
+		{
+			Event_RoundStart(null, "", false);
+		}
 
 		for(int i = 1; i <= MaxClients; i++)
 		{
@@ -110,6 +137,7 @@ public void OnEntityCreated(int entity, const char[] classname)
 
 public void OnClientDisconnect_Post(int client)
 {
+	gB_AlreadyMuted[client] = false;
 	gI_Settings[client] = 0;
 	CheckShotgunShotHook();
 }
@@ -134,11 +162,58 @@ public void OnClientCookiesCached(int client)
 	{
 		gB_ShouldHookShotgunShot = true;
 	}
+}
 
-	if(gI_Settings[client] & Mute_AmbientSounds)
+public Action OnPlayerRunCmd(int client)
+{
+	if(!IsValidClient(client))
 	{
-		CreateTimer(1.0, ConnectMuteAmbientTimer, GetClientSerial(client));
+		return Plugin_Continue;
 	}
+	
+	if(gI_Settings[client] & Mute_AmbientSounds == 0)
+	{
+		return Plugin_Continue;
+	}
+	
+	if(gB_AlreadyMuted[client])
+	{
+		return Plugin_Continue;
+	}
+	
+	if(gEV_Type == Engine_CSS)
+	{
+		if(!gB_EntitiesFound)
+		{
+			return Plugin_Continue;
+		}
+		
+		for(int i = 0; i < gA_PlayEverywhereAmbients.Length; i++)
+		{
+			int entity = EntRefToEntIndex(gA_PlayEverywhereAmbients.Get(i));
+
+			if(entity != INVALID_ENT_REFERENCE)
+			{
+				char sSound[PLATFORM_MAX_PATH];
+				GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, PLATFORM_MAX_PATH);
+				EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
+
+				if(gI_Settings[client] & Debug)
+				{
+					PrintToChat(client, "[Debug] Ambient Muted (%s)", sSound);
+				}
+			}
+		}
+	}
+	else
+	{
+		ClientCommand(client, "playgamesound Music.StopAllExceptMusic");
+		ClientCommand(client, "playgamesound Music.StopAllMusic");
+	}
+	
+	gB_AlreadyMuted[client] = true;
+	
+	return Plugin_Continue;
 }
 //-------------------------------------------------------------
 
@@ -150,7 +225,7 @@ void LoadDhooks()
 		SetFailState("Failed to load SoundManager gamedata.");
 	}
 
-	HookSoundScapes(hGameData);
+	HookSoundscapes(hGameData);
 	HookAcceptInput(hGameData);
 	HookSendSound(hGameData);
 
@@ -158,7 +233,7 @@ void LoadDhooks()
 }
 
 //-------------------------SOUNDSCAPES-------------------------
-void HookSoundScapes(Handle hGameData)
+void HookSoundscapes(Handle hGameData)
 {
 	Handle hFunction = DHookCreateDetour(Address_Null, CallConv_THISCALL, ReturnType_Void, ThisPointer_CBaseEntity); 
 	DHookSetFromConf(hFunction, hGameData, SDKConf_Signature, "CEnvSoundscape::UpdateForPlayer");
@@ -185,24 +260,19 @@ struct ss_update_t
 //void CEnvSoundscape::UpdateForPlayer( ss_update_t &update )
 public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 {
-	if(!IsValidEdict(pThis))
-	{
-		return MRES_Ignored;
-	}
-
 	int client = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_CBaseEntityPtr);
 
 	MRESReturn ret = MRES_Ignored;
 
 	if(gI_Settings[client] & Mute_Soundscapes)
 	{
-		SetEntProp(client, Prop_Data, "soundscapeIndex", EMPTY_SOUNDSCAPE);
+		SetEntProp(client, Prop_Data, "soundscapeIndex", gI_SilentSoundScape);
 
 		if((gI_Settings[client] & Debug)
-			&& gI_LastSoundscape[client] != EMPTY_SOUNDSCAPE
-			&& GetEntProp(client, Prop_Data, "soundscapeIndex") == EMPTY_SOUNDSCAPE)
+			&& gI_LastSoundscape[client] != gI_SilentSoundScape
+			&& GetEntProp(client, Prop_Data, "soundscapeIndex") == gI_SilentSoundScape)
 		{
-			PrintToChat(client, "[Debug] Soundscape Blocked (%d)", pThis);
+			PrintToChat(client, "[Debug] Soundscape Blocked");
 		}
 
 		ret = MRES_Supercede;
@@ -231,24 +301,19 @@ void HookAcceptInput(Handle hGameData)
 	DHookAddParam(gH_AcceptInput, HookParamType_CharPtr);
 	DHookAddParam(gH_AcceptInput, HookParamType_CBaseEntity);
 	DHookAddParam(gH_AcceptInput, HookParamType_CBaseEntity);
-	DHookAddParam(gH_AcceptInput, HookParamType_Object, 20, DHookPass_ByVal|DHookPass_ODTOR|DHookPass_OCTOR|DHookPass_OASSIGNOP);
+	DHookAddParam(gH_AcceptInput, HookParamType_Object, 20);
 	DHookAddParam(gH_AcceptInput, HookParamType_Int);
 }
 
 // virtual bool AcceptInput( const char *szInputName, CBaseEntity *pActivator, CBaseEntity *pCaller, variant_t Value, int outputID );
 public MRESReturn DHook_AcceptInput(int pThis, Handle hReturn, Handle hParams)
 {
-	if(DHookIsNullParam(hParams, 2) || DHookIsNullParam(hParams, 3))
+	if(DHookIsNullParam(hParams, 2))
 	{
 		return MRES_Ignored;
 	}
 
 	int client = DHookGetParam(hParams, 2);
-
-	if(!IsValidClient(client))
-	{
-		return MRES_Ignored;
-	}
 
 	if(gI_Settings[client] & Mute_TriggerSounds == 0)
 	{
@@ -297,45 +362,70 @@ void HookSendSound(Handle hGameData)
 	}
 }
 
-/*
-struct SoundInfo_t
+//CSS:
+/*struct SoundInfo_t
 {
-    int            nSequenceNumber;   Offset: 0  | Size: 4
-    int            nEntityIndex;      Offset: 4  | Size: 4
-    int            nChannel;          Offset: 8  | Size: 4
-    const char     *pszName;          Offset: 12 | Size: 4
-    Vector         vOrigin;           Offset: 16 | Size: 12
-    Vector         vDirection;        Offset: 28 | Size: 12
-    float          fVolume;           Offset: 40 | Size: 4
-    soundlevel_t   Soundlevel;        Offset: 44 | Size: 4
-    bool           bLooping;          Offset: 48 | Size: 1
-    int            nPitch;            Offset: 52 | Size: 4
-    int            nSpecialDSP;       Offset: 56 | Size: 4
-    Vector         vListenerOrigin;   Offset: 60 | Size: 12
-    int            nFlags;            Offset: 72 | Size: 4
-    int            nSoundNum;         Offset: 76 | Size: 4
-    float          fDelay;            Offset: 80 | Size: 4
-    bool           bIsSentence;       Offset: 84 | Size: 1
-    bool           bIsAmbient;        Offset: 85 | Size: 1
-    int            nSpeakerEntity;    Offset: 88 | Size: 4
-};
-*/
+    int             nSequenceNumber;   Offset: 0  | Size: 4
+    int             nEntityIndex;      Offset: 4  | Size: 4
+    int             nChannel;          Offset: 8  | Size: 4
+    const char      *pszName;          Offset: 12 | Size: 4
+    Vector          vOrigin;           Offset: 16 | Size: 12
+    Vector          vDirection;        Offset: 28 | Size: 12
+    float           fVolume;           Offset: 40 | Size: 4
+    soundlevel_t    Soundlevel;        Offset: 44 | Size: 4
+    bool            bLooping;          Offset: 48 | Size: 1
+    int             nPitch;            Offset: 52 | Size: 4
+    int             nSpecialDSP;       Offset: 56 | Size: 4
+    Vector          vListenerOrigin;   Offset: 60 | Size: 12
+    int             nFlags;            Offset: 72 | Size: 4
+    int             nSoundNum;         Offset: 76 | Size: 4
+    float           fDelay;            Offset: 80 | Size: 4
+    bool            bIsSentence;       Offset: 84 | Size: 1
+    bool            bIsAmbient;        Offset: 85 | Size: 1
+    int             nSpeakerEntity;    Offset: 88 | Size: 4
+};*/
+
+//CSGO:
+/*struct SoundInfo_t
+{
+    Vector          vOrigin;           Offset: 0   | Size: 12
+    Vector          vDirection         Offset: 12  | Size: 12
+    Vector          vListenerOrigin;   Offset: 24  | Size: 12
+    const char      *pszName;		   Offset: 36  | Size: 4
+    float           fVolume;           Offset: 40  | Size: 4
+    float           fDelay;            Offset: 44  | Size: 4
+    float           fTickTime;         Offset: 48  | Size: 4
+    int             nSequenceNumber;   Offset: 52  | Size: 4
+    int             nEntityIndex;      Offset: 56  | Size: 4
+    int             nChannel;          Offset: 60  | Size: 4
+    int             nPitch;            Offset: 64  | Size: 4
+    int             nFlags;            Offset: 68  | Size: 4
+    unsigned int    nSoundNum;         Offset: 72  | Size: 4
+    int             nSpeakerEntity;    Offset: 76  | Size: 4
+    int             nRandomSeed;       Offset: 80  | Size: 4
+    soundlevel_t    Soundlevel;        Offset: 84  | Size: 4
+    bool            bIsSentence;       Offset: 88  | Size: 1
+    bool            bIsAmbient;        Offset: 89  | Size: 1
+    bool            bLooping;          Offset: 90  | Size: 1
+};*/
 
 //void CGameClient::SendSound( SoundInfo_t &sound, bool isReliable )
 public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 {
+	if(DHookGetParamObjectPtrVar(hParams, 1, 40, ObjectValueType_Float) == 0.0)
+	{
+		return MRES_Ignored;
+	}
+	
 	Address pIClient = pThis + view_as<Address>(4);
 	int client = view_as<int>(SDKCall(gH_GetPlayerSlot, pIClient)) + 1;
+	
 	if(!IsValidClient(client))
 	{
 		return MRES_Ignored;
 	}
 
-	if(DHookGetParamObjectPtrVar(hParams, 1, 40, ObjectValueType_Float) == 0.0)
-	{
-		return MRES_Ignored;
-	}
-	bool bIsAmbient = DHookGetParamObjectPtrVar(hParams, 1, 85, ObjectValueType_Bool);
+	bool bIsAmbient = DHookGetParamObjectPtrVar(hParams, 1, gEV_Type == Engine_CSS ? 85 : 89, ObjectValueType_Bool);
 
 	MRESReturn ret = MRES_Ignored;
 
@@ -375,10 +465,16 @@ public Action Command_Sounds(int client, int args)
 	}
 
 	Menu menu = new Menu(MenuHandler_Sounds);
-	menu.SetTitle("Sound Manager\n \n");
+	menu.SetTitle("Sound Manager\n ");
 
 	char sDisplay[64];
 	char sInfo[16];
+	
+	if(gEV_Type == Engine_CSGO)
+	{
+		FormatEx(sDisplay, 64, "Stop Active Sounds\n ");
+		menu.AddItem("stopactive", sDisplay);
+	}
 
 	FormatEx(sDisplay, 64, "Soundscapes: [%s]", gI_Settings[client] & Mute_Soundscapes ? "Muted" : "On");
 	IntToString(Mute_Soundscapes, sInfo, 16);
@@ -417,6 +513,16 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 	{
 		char sInfo[16];
 		menu.GetItem(param2, sInfo, 16);
+		
+		if(gEV_Type == Engine_CSGO)
+		{
+			if(StrEqual(sInfo, "stopactive"))
+			{
+				ClientCommand(param1, "playgamesound Music.StopAllExceptMusic");
+				ClientCommand(param1, "playgamesound Music.StopAllMusic");
+			}
+		}
+	
 
 		int iOption = StringToInt(sInfo);
 		gI_Settings[param1] ^= iOption;
@@ -445,17 +551,19 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 //-----------------------EVENTS-----------------------
 public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
+	gB_EntitiesFound = false;
 	gA_PlayEverywhereAmbients.Clear();
 
 	int entity = INVALID_ENT_REFERENCE;
 
 	while((entity = FindEntityByClassname(entity, "ambient_generic")) != INVALID_ENT_REFERENCE)
 	{
-		if(GetEntProp(entity, Prop_Data, "m_spawnflags") == 1)
+		if(GetEntProp(entity, Prop_Data, "m_fActive") == 1)
 		{
 			gA_PlayEverywhereAmbients.Push(EntIndexToEntRef(entity));
 		}
 	}
+	gB_EntitiesFound = true;
 }
 //----------------------------------------------------
 
@@ -510,33 +618,6 @@ public Action CSS_Hook_ShotgunShot(const char[] te_name, const int[] Players, in
 	TE_Send(newClients, count, delay);
 
 	return Plugin_Stop;
-}
-
-public Action ConnectMuteAmbientTimer(Handle hTimer, any data)
-{
-	int client = GetClientFromSerial(data);
-
-	if(!IsValidClient(client))
-	{
-		return;
-	}
-
-	for(int i = 0; i < gA_PlayEverywhereAmbients.Length; i++)
-	{
-		int entity = EntRefToEntIndex(gA_PlayEverywhereAmbients.Get(i));
-
-		if(entity != INVALID_ENT_REFERENCE)
-		{
-			char sSound[PLATFORM_MAX_PATH];
-			GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, PLATFORM_MAX_PATH);
-			EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
-
-			if(gI_Settings[client] & Debug)
-			{
-				PrintToChat(client, "[Debug] Ambient Blocked (%s)", sSound);
-			}
-		}
-	}
 }
 
 void CheckShotgunShotHook()
