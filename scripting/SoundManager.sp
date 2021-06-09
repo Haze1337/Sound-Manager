@@ -14,9 +14,6 @@ public Plugin myinfo =
 	url = ""
 }
 
-//CSS: 138: port.LightHum2
-//CSGO: 199: port.LightHum2
-
 #define Mute_Soundscapes				(1 << 0)
 #define Mute_AmbientSounds				(1 << 1)
 #define Mute_GunSounds					(1 << 2)
@@ -43,6 +40,7 @@ Handle gH_GetPlayerSlot = null;
 
 // Other
 int gI_SilentSoundScape = 0;
+int gI_AmbientOffset = 0;
 bool gB_ShouldHookShotgunShot = false;
 ArrayList gA_PlayEverywhereAmbients = null;
 bool gB_EntitiesFound = false;
@@ -56,22 +54,26 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	gB_LateLoad = late;
 }
 
+//CSS: 138: port.LightHum2
+//CSGO: 199: port.LightHum2
 public void OnPluginStart()
 {
 	gEV_Type = GetEngineVersion();
 	if(gEV_Type == Engine_CSS)
 	{
 		gI_SilentSoundScape = 138;
+		gI_AmbientOffset = 85;
 	}
 	else if(gEV_Type == Engine_CSGO)
 	{
 		gI_SilentSoundScape = 199;
+		gI_AmbientOffset = 89;
 	}
 	else
 	{
 		SetFailState("This plugin is only supported for CSS and CSGO.");
 	}
-	
+
 	// Commands
 	RegConsoleCmd("sm_snd", Command_Sounds);
 	RegConsoleCmd("sm_sound", Command_Sounds);
@@ -170,24 +172,24 @@ public Action OnPlayerRunCmd(int client)
 	{
 		return Plugin_Continue;
 	}
-	
+
 	if(gI_Settings[client] & Mute_AmbientSounds == 0)
 	{
 		return Plugin_Continue;
 	}
-	
+
 	if(gB_AlreadyMuted[client])
 	{
 		return Plugin_Continue;
 	}
-	
+
 	if(gEV_Type == Engine_CSS)
 	{
 		if(!gB_EntitiesFound)
 		{
 			return Plugin_Continue;
 		}
-		
+
 		for(int i = 0; i < gA_PlayEverywhereAmbients.Length; i++)
 		{
 			int entity = EntRefToEntIndex(gA_PlayEverywhereAmbients.Get(i));
@@ -210,7 +212,7 @@ public Action OnPlayerRunCmd(int client)
 		ClientCommand(client, "playgamesound Music.StopAllExceptMusic");
 		ClientCommand(client, "playgamesound Music.StopAllMusic");
 	}
-	
+
 	gB_AlreadyMuted[client] = true;
 	
 	return Plugin_Continue;
@@ -416,16 +418,16 @@ public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 	{
 		return MRES_Ignored;
 	}
-	
+
 	Address pIClient = pThis + view_as<Address>(4);
 	int client = view_as<int>(SDKCall(gH_GetPlayerSlot, pIClient)) + 1;
-	
+
 	if(!IsValidClient(client))
 	{
 		return MRES_Ignored;
 	}
 
-	bool bIsAmbient = DHookGetParamObjectPtrVar(hParams, 1, gEV_Type == Engine_CSS ? 85 : 89, ObjectValueType_Bool);
+	bool bIsAmbient = DHookGetParamObjectPtrVar(hParams, 1, gI_AmbientOffset, ObjectValueType_Bool);
 
 	MRESReturn ret = MRES_Ignored;
 
@@ -469,7 +471,7 @@ public Action Command_Sounds(int client, int args)
 
 	char sDisplay[64];
 	char sInfo[16];
-	
+
 	if(gEV_Type == Engine_CSGO)
 	{
 		FormatEx(sDisplay, 64, "Stop Active Sounds\n ");
@@ -513,7 +515,7 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 	{
 		char sInfo[16];
 		menu.GetItem(param2, sInfo, 16);
-		
+
 		if(gEV_Type == Engine_CSGO)
 		{
 			if(StrEqual(sInfo, "stopactive"))
@@ -524,7 +526,6 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 				return 0;
 			}
 		}
-	
 
 		int iOption = StringToInt(sInfo);
 		gI_Settings[param1] ^= iOption;
