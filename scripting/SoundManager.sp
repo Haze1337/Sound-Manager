@@ -22,7 +22,7 @@ public Plugin myinfo =
 #define Debug							(1 << 5)
 
 // Engine
-EngineVersion gEV_Type;
+EngineVersion gEV_Type = Engine_Unknown;
 
 // Player settings
 int gI_Settings[MAXPLAYERS+1];
@@ -42,7 +42,7 @@ Handle gH_GetPlayerSlot = null;
 int gI_SilentSoundScape = 0;
 int gI_AmbientOffset = 0;
 bool gB_ShouldHookShotgunShot = false;
-ArrayList gA_PlayEverywhereAmbients = null;
+ArrayList gA_LoopingAmbients = null;
 bool gB_EntitiesFound = false;
 
 // Late Load
@@ -85,20 +85,16 @@ public void OnPluginStart()
 	// Cookie
 	gH_SettingsCookie = RegClientCookie("sound_settings", "Sound Manager Settings", CookieAccess_Protected);
 
-	if(gEV_Type == Engine_CSS)
-	{
-		// ArrayList for ambient_generic's with spawnflags & 1 (play everywhere [1]) 
-		gA_PlayEverywhereAmbients = new ArrayList(ByteCountToCells(4));
+	gA_LoopingAmbients = new ArrayList(ByteCountToCells(4));
 
-		// Hook round_start
-		HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
-	}
+	// Hook round_start
+	HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 
 	// Dhooks
 	LoadDhooks();
 
 	// Sound Hook
-	AddTempEntHook("Shotgun Shot", CSS_Hook_ShotgunShot);
+	AddTempEntHook("Shotgun Shot", Hook_ShotgunShot);
 
 	// Late Load
 	if(gB_LateLoad)
@@ -109,11 +105,8 @@ public void OnPluginStart()
 			DHookEntity(gH_AcceptInput, false, entity);
 		}
 
-		if(gEV_Type == Engine_CSS)
-		{
-			Event_RoundStart(null, "", false);
-		}
-
+		Event_RoundStart(null, "", false);
+		
 		for(int i = 1; i <= MaxClients; i++)
 		{
 			if(!IsValidClient(i))
@@ -183,34 +176,26 @@ public Action OnPlayerRunCmd(int client)
 		return Plugin_Continue;
 	}
 
-	if(gEV_Type == Engine_CSS)
+	if(!gB_EntitiesFound)
 	{
-		if(!gB_EntitiesFound)
-		{
-			return Plugin_Continue;
-		}
+		return Plugin_Continue;
+	}
 
-		for(int i = 0; i < gA_PlayEverywhereAmbients.Length; i++)
-		{
-			int entity = EntRefToEntIndex(gA_PlayEverywhereAmbients.Get(i));
+	for(int i = 0; i < gA_LoopingAmbients.Length; i++)
+	{
+		int entity = EntRefToEntIndex(gA_LoopingAmbients.Get(i));
 
-			if(entity != INVALID_ENT_REFERENCE)
+		if(entity != INVALID_ENT_REFERENCE)
+		{
+			char sSound[PLATFORM_MAX_PATH];
+			GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, PLATFORM_MAX_PATH);
+			EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
+
+			if(gI_Settings[client] & Debug)
 			{
-				char sSound[PLATFORM_MAX_PATH];
-				GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, PLATFORM_MAX_PATH);
-				EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
-
-				if(gI_Settings[client] & Debug)
-				{
-					PrintToChat(client, "[Debug] Ambient Muted (%s)", sSound);
-				}
+				PrintToChat(client, "[Debug] Ambient Muted (%s)", sSound);
 			}
 		}
-	}
-	else
-	{
-		ClientCommand(client, "playgamesound Music.StopAllExceptMusic");
-		ClientCommand(client, "playgamesound Music.StopAllMusic");
 	}
 
 	gB_AlreadyMuted[client] = true;
@@ -555,15 +540,15 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	gB_EntitiesFound = false;
-	gA_PlayEverywhereAmbients.Clear();
+	gA_LoopingAmbients.Clear();
 
 	int entity = INVALID_ENT_REFERENCE;
 
 	while((entity = FindEntityByClassname(entity, "ambient_generic")) != INVALID_ENT_REFERENCE)
 	{
-		if(GetEntProp(entity, Prop_Data, "m_fActive") == 1)
+		if(GetEntProp(entity, Prop_Data, "m_fLooping") == 1)
 		{
-			gA_PlayEverywhereAmbients.Push(EntIndexToEntRef(entity));
+			gA_LoopingAmbients.Push(EntIndexToEntRef(entity));
 		}
 	}
 	gB_EntitiesFound = true;
@@ -571,7 +556,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 //----------------------------------------------------
 
 // Credits to GoD-Tony for everything related to stopping gun sounds
-public Action CSS_Hook_ShotgunShot(const char[] te_name, const int[] Players, int numClients, float delay)
+public Action Hook_ShotgunShot(const char[] te_name, const int[] Players, int numClients, float delay)
 {
 	if(!gB_ShouldHookShotgunShot)
 	{
