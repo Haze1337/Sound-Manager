@@ -1,3 +1,4 @@
+# Sound Manager
 Plugin for managing sound entities in games Counter-Strike: Source and Counter-Strike: Global Offensive.
 
 # Requirements:
