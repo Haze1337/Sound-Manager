@@ -10,7 +10,7 @@ public Plugin myinfo =
 	name = "Sound Manager",
 	author = "Haze",
 	description = "",
-	version = "1.0",
+	version = "1.0.1",
 	url = ""
 }
 
