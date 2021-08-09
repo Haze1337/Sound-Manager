@@ -18,7 +18,7 @@ public Plugin myinfo =
 #define Mute_AmbientSounds				(1 << 1)
 #define Mute_GunSounds					(1 << 2)
 #define Mute_TriggerSounds				(1 << 3)
-#define Mute_AllPackets					(1 << 4)
+#define Mute_NormalSounds				(1 << 4)
 #define Debug							(1 << 5)
 
 // Engine
@@ -429,7 +429,7 @@ public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 	}
 	else
 	{
-		if(gI_Settings[client] & Mute_AllPackets)
+		if(gI_Settings[client] & Mute_NormalSounds)
 		{
 			if(gI_Settings[client] & Debug)
 			{
@@ -470,6 +470,10 @@ public Action Command_Sounds(int client, int args)
 	FormatEx(sDisplay, 64, "Ambient Sounds: [%s]", gI_Settings[client] & Mute_AmbientSounds ? "Muted" : "On");
 	IntToString(Mute_AmbientSounds, sInfo, 16);
 	menu.AddItem(sInfo, sDisplay);
+	
+	FormatEx(sDisplay, 64, "Normal Sounds: [%s]", gI_Settings[client] & Mute_NormalSounds ? "Muted" : "On");
+	IntToString(Mute_NormalSounds, sInfo, 16);
+	menu.AddItem(sInfo, sDisplay);
 
 	FormatEx(sDisplay, 64, "Trigger Sounds: [%s]\n ", gI_Settings[client] & Mute_TriggerSounds ? "Muted" : "On");
 	IntToString(Mute_TriggerSounds, sInfo, 16);
@@ -477,10 +481,6 @@ public Action Command_Sounds(int client, int args)
 
 	FormatEx(sDisplay, 64, "Gun Sounds: [%s]\n ", gI_Settings[client] & Mute_GunSounds ? "Muted" : "On");
 	IntToString(Mute_GunSounds, sInfo, 16);
-	menu.AddItem(sInfo, sDisplay);
-
-	FormatEx(sDisplay, 64, "Block all sound packets: [%s]", gI_Settings[client] & Mute_AllPackets ? "Yes" : "No");
-	IntToString(Mute_AllPackets, sInfo, 16);
 	menu.AddItem(sInfo, sDisplay);
 
 	if(CheckCommandAccess(client, "soundmanager_debug", ADMFLAG_RCON))
