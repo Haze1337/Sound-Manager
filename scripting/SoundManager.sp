@@ -288,7 +288,7 @@ void HookAcceptInput(Handle hGameData)
 	DHookAddParam(gH_AcceptInput, HookParamType_CharPtr);
 	DHookAddParam(gH_AcceptInput, HookParamType_CBaseEntity);
 	DHookAddParam(gH_AcceptInput, HookParamType_CBaseEntity);
-	DHookAddParam(gH_AcceptInput, HookParamType_Object, 20);
+	DHookAddParam(gH_AcceptInput, HookParamType_Object, 20, DHookPass_ByVal|DHookPass_ODTOR|DHookPass_OCTOR|DHookPass_OASSIGNOP);
 	DHookAddParam(gH_AcceptInput, HookParamType_Int);
 }
 
