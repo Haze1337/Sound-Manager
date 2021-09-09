@@ -20,6 +20,7 @@ public Plugin myinfo =
 #define Mute_TriggerSounds				(1 << 3)
 #define Mute_NormalSounds				(1 << 4)
 #define Debug							(1 << 5)
+#define Mute_HurtSounds					(1 << 6)
 
 // Engine
 EngineVersion gEV_Type = Engine_Unknown;
@@ -54,8 +55,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	gB_LateLoad = late;
 }
 
-//CSS: 138: port.LightHum2
-//CSGO: 199: port.LightHum2
+// CSS: 138: port.LightHum2
+// CSGO: 199: port.LightHum2
 public void OnPluginStart()
 {
 	gEV_Type = GetEngineVersion();
@@ -95,6 +96,7 @@ public void OnPluginStart()
 
 	// Sound Hook
 	AddTempEntHook("Shotgun Shot", Hook_ShotgunShot);
+	AddNormalSoundHook(NormalSoundHook);
 
 	// Late Load
 	if(gB_LateLoad)
@@ -232,8 +234,7 @@ void HookSoundscapes(Handle hGameData)
 	}
 }
 
-/*
-struct ss_update_t
+/* struct ss_update_t
 {
     CBasePlayer       *pPlayer;             Offset: 0  | Size: 4
     CEnvSoundscape    pCurrentSoundscape;   Offset: 4  | Size: 4
@@ -349,8 +350,8 @@ void HookSendSound(Handle hGameData)
 	}
 }
 
-//CSS:
-/*struct SoundInfo_t
+// CSS:
+/* struct SoundInfo_t
 {
     int             nSequenceNumber;   Offset: 0  | Size: 4
     int             nEntityIndex;      Offset: 4  | Size: 4
@@ -372,8 +373,8 @@ void HookSendSound(Handle hGameData)
     int             nSpeakerEntity;    Offset: 88 | Size: 4
 };*/
 
-//CSGO:
-/*struct SoundInfo_t
+// CSGO:
+/* struct SoundInfo_t
 {
     Vector          vOrigin;           Offset: 0   | Size: 12
     Vector          vDirection         Offset: 12  | Size: 12
@@ -396,7 +397,7 @@ void HookSendSound(Handle hGameData)
     bool            bLooping;          Offset: 90  | Size: 1
 };*/
 
-//void CGameClient::SendSound( SoundInfo_t &sound, bool isReliable )
+// void CGameClient::SendSound( SoundInfo_t &sound, bool isReliable )
 public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 {
 	if(DHookGetParamObjectPtrVar(hParams, 1, 40, ObjectValueType_Float) == 0.0)
@@ -454,44 +455,39 @@ public Action Command_Sounds(int client, int args)
 	Menu menu = new Menu(MenuHandler_Sounds);
 	menu.SetTitle("Sound Manager\n ");
 
-	char sDisplay[64];
-	char sInfo[16];
-
 	if(gEV_Type == Engine_CSGO)
 	{
-		FormatEx(sDisplay, 64, "Stop Active Sounds\n ");
-		menu.AddItem("stopactive", sDisplay);
+		menu.AddItem("stopactive", "Stop Active Sounds\n ");
 	}
 
-	FormatEx(sDisplay, 64, "Soundscapes: [%s]", gI_Settings[client] & Mute_Soundscapes ? "Muted" : "On");
-	IntToString(Mute_Soundscapes, sInfo, 16);
-	menu.AddItem(sInfo, sDisplay);
-
-	FormatEx(sDisplay, 64, "Ambient Sounds: [%s]", gI_Settings[client] & Mute_AmbientSounds ? "Muted" : "On");
-	IntToString(Mute_AmbientSounds, sInfo, 16);
-	menu.AddItem(sInfo, sDisplay);
-	
-	FormatEx(sDisplay, 64, "Normal Sounds: [%s]", gI_Settings[client] & Mute_NormalSounds ? "Muted" : "On");
-	IntToString(Mute_NormalSounds, sInfo, 16);
-	menu.AddItem(sInfo, sDisplay);
-
-	FormatEx(sDisplay, 64, "Trigger Sounds: [%s]\n ", gI_Settings[client] & Mute_TriggerSounds ? "Muted" : "On");
-	IntToString(Mute_TriggerSounds, sInfo, 16);
-	menu.AddItem(sInfo, sDisplay);
-
-	FormatEx(sDisplay, 64, "Gun Sounds: [%s]\n ", gI_Settings[client] & Mute_GunSounds ? "Muted" : "On");
-	IntToString(Mute_GunSounds, sInfo, 16);
-	menu.AddItem(sInfo, sDisplay);
+	AddSettingItemToMenu(menu, client, "Soundscapes", Mute_Soundscapes);
+	AddSettingItemToMenu(menu, client, "Ambient Sounds", Mute_AmbientSounds);
+	AddSettingItemToMenu(menu, client, "Normal Sounds", Mute_NormalSounds);
+	AddSettingItemToMenu(menu, client, "Trigger Sounds", Mute_TriggerSounds, true);
+	AddSettingItemToMenu(menu, client, "Gun Sounds", Mute_GunSounds);
+	AddSettingItemToMenu(menu, client, "Hurt Sounds", Mute_HurtSounds, true);
 
 	if(CheckCommandAccess(client, "soundmanager_debug", ADMFLAG_RCON))
 	{
-		FormatEx(sDisplay, 64, "Debug Prints: [%s]", gI_Settings[client] & Debug ? "Yes" : "No");
-		IntToString(Debug, sInfo, 16);
-		menu.AddItem(sInfo, sDisplay);
+		AddSettingItemToMenu(menu, client, "Debug Prints", Debug);
 	}
 
 	menu.Display(client, MENU_TIME_FOREVER);
 	return Plugin_Handled;
+}
+
+void AddSettingItemToMenu(Menu menu, int client, const char[] setting_name, int setting_id, bool new_line = false)
+{
+	char sDisplay[64];
+	char sInfo[16];
+
+	FormatEx(sDisplay, 64, "%s: [%s]", setting_name, gI_Settings[client] & setting_id ? "Muted" : "On");
+	if(new_line)
+	{
+		StrCat(sDisplay, 64, "\n ");
+	}
+	IntToString(setting_id, sInfo, 16);
+	menu.AddItem(sInfo, sDisplay);
 }
 
 public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int param2)
@@ -565,19 +561,7 @@ public Action Hook_ShotgunShot(const char[] te_name, const int[] Players, int nu
 
 	// Check which clients need to be excluded.
 	int newClients[MAXPLAYERS+1];
-	int count = 0;
-
-	for(int i = 0; i < numClients; i++)
-	{
-		int iClient = Players[i];
-
-		// player not muting gun sounds
-		if(gI_Settings[iClient] & Mute_GunSounds == 0)
-		{
-			newClients[count] = iClient;
-			count++;
-		}
-	}
+	int count = FilterClientsWithSettingOn(Mute_GunSounds, numClients, Players, newClients);
 
 	// No clients were excluded.
 	if(count == numClients)
@@ -628,6 +612,46 @@ void CheckShotgunShotHook()
 
 	// Fake (un)hook because toggling actual hooks will cause server instability.
 	gB_ShouldHookShotgunShot = bShouldHook;
+}
+
+public Action NormalSoundHook(int clients[MAXPLAYERS], int &numClients, char sample[PLATFORM_MAX_PATH], int &entity, int &channel, float &volume, int &level, int &pitch, int &flags, char soundEntry[PLATFORM_MAX_PATH], int &seed)
+{
+	if(StrEqual(sample, "player/damage1.wav")
+		|| StrEqual(sample, "player/damage2.wav")
+		|| StrEqual(sample, "player/damage3.wav"))
+	{
+		int newClients[MAXPLAYERS];
+		int count = FilterClientsWithSettingOn(Mute_HurtSounds, numClients, clients, newClients);
+
+		if(count != numClients)
+		{
+			clients = newClients;
+			numClients = count;
+			return Plugin_Changed;
+		}
+	}
+
+	return Plugin_Continue;
+}
+
+// returns count of players with enabled sound
+int FilterClientsWithSettingOn(int setting_id, int numClients, const int[] input_players, int[] output_players)
+{
+	int count = 0;
+
+	for(int i = 0; i < numClients; i++)
+	{
+		int iClient = input_players[i];
+
+		// player not muting gun sounds
+		if(gI_Settings[iClient] & setting_id == 0)
+		{
+			output_players[count] = iClient;
+			count++;
+		}
+	}
+
+	return count;
 }
 
 bool IsValidClient(int client)
