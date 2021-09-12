@@ -443,18 +443,27 @@ public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 	{
 		return MRES_Ignored;
 	}
+	
+	char sSample[PLATFORM_MAX_PATH];
+	bool bDebug = gB_Debug[client];
 
 	bool bIsAmbient = DHookGetParamObjectPtrVar(hParams, 1, gI_AmbientOffset, ObjectValueType_Bool);
 
 	MRESReturn ret = MRES_Ignored;
 
+	if(bDebug)
+	{
+		int nSoundNum = DHookGetParamObjectPtrVar(hParams, 1, gI_SoundNumOffset, ObjectValueType_Int);
+		SDKCall(gH_GetSound, gP_GameServer, sSample, sizeof(sSample), nSoundNum);
+	}
+	
 	if(bIsAmbient)
 	{
 		if(gI_Settings[client] & Mute_AmbientSounds)
 		{
-			if(gB_Debug[client])
+			if(bDebug)
 			{
-				PrintToChat(client, "[Debug] Ambient Blocked");
+				PrintToChat(client, "[Debug] Ambient Blocked (%s)", sSample);
 			}
 			ret = MRES_Supercede;
 		}
@@ -463,9 +472,9 @@ public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 	{
 		if(gI_Settings[client] & Mute_NormalSounds)
 		{
-			if(gB_Debug[client])
+			if(bDebug)
 			{
-				PrintToChat(client, "[Debug] Sound Blocked");
+				PrintToChat(client, "[Debug] Sound Blocked (%s)", sSample);
 			}
 			ret = MRES_Supercede;
 		}
