@@ -19,8 +19,7 @@ public Plugin myinfo =
 #define Mute_GunSounds					(1 << 2)
 #define Mute_TriggerSounds				(1 << 3)
 #define Mute_NormalSounds				(1 << 4)
-#define Debug							(1 << 5)
-#define Mute_HurtSounds					(1 << 6)
+#define Mute_HurtSounds					(1 << 5)
 
 // Engine
 EngineVersion gEV_Type = Engine_Unknown;
@@ -30,6 +29,7 @@ int gI_Settings[MAXPLAYERS+1];
 bool gB_AlreadyMuted[MAXPLAYERS+1];
 
 // Debug
+bool gB_Debug[MAXPLAYERS+1];
 int gI_LastSoundscape[MAXPLAYERS+1];
 
 // Cookie
@@ -41,10 +41,16 @@ Handle gH_GetPlayerSlot = null;
 
 // Other
 int gI_SilentSoundScape = 0;
+int gI_IsSentenceOffset = 0;
 int gI_AmbientOffset = 0;
+int gI_SoundNumOffset = 0;
+
 bool gB_ShouldHookShotgunShot = false;
 ArrayList gA_LoopingAmbients = null;
 bool gB_EntitiesFound = false;
+
+Address gP_GameServer = Address_Null;
+Handle gH_GetSound = null;
 
 // Late Load
 bool gB_LateLoad = false;
@@ -63,12 +69,16 @@ public void OnPluginStart()
 	if(gEV_Type == Engine_CSS)
 	{
 		gI_SilentSoundScape = 138;
+		gI_IsSentenceOffset = 84;
 		gI_AmbientOffset = 85;
+		gI_SoundNumOffset = 76;
 	}
 	else if(gEV_Type == Engine_CSGO)
 	{
 		gI_SilentSoundScape = 199;
+		gI_IsSentenceOffset = 88;
 		gI_AmbientOffset = 89;
+		gI_SoundNumOffset = 72;
 	}
 	else
 	{
@@ -96,7 +106,6 @@ public void OnPluginStart()
 
 	// Sound Hook
 	AddTempEntHook("Shotgun Shot", Hook_ShotgunShot);
-	AddNormalSoundHook(NormalSoundHook);
 
 	// Late Load
 	if(gB_LateLoad)
@@ -134,6 +143,7 @@ public void OnEntityCreated(int entity, const char[] classname)
 
 public void OnClientDisconnect_Post(int client)
 {
+	gB_Debug[client] = false;
 	gB_AlreadyMuted[client] = false;
 	gI_Settings[client] = 0;
 	CheckShotgunShotHook();
@@ -193,7 +203,7 @@ public Action OnPlayerRunCmd(int client)
 			GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, PLATFORM_MAX_PATH);
 			EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
 
-			if(gI_Settings[client] & Debug)
+			if(gB_Debug[client])
 			{
 				PrintToChat(client, "[Debug] Ambient Muted (%s)", sSound);
 			}
@@ -242,10 +252,9 @@ void HookSoundscapes(Handle hGameData)
     float             currentDistance;      Offset: 20 | Size: 4
     int               traceCount;           Offset: 24 | Size: 4
     bool              bInRange;             Offset: 28 | Size: 4
-};
-*/
+}; */
 
-//void CEnvSoundscape::UpdateForPlayer( ss_update_t &update )
+// void CEnvSoundscape::UpdateForPlayer( ss_update_t &update )
 public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 {
 	int client = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_CBaseEntityPtr);
@@ -256,7 +265,7 @@ public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 	{
 		SetEntProp(client, Prop_Data, "soundscapeIndex", gI_SilentSoundScape);
 
-		if((gI_Settings[client] & Debug)
+		if((gB_Debug[client])
 			&& gI_LastSoundscape[client] != gI_SilentSoundScape
 			&& GetEntProp(client, Prop_Data, "soundscapeIndex") == gI_SilentSoundScape)
 		{
@@ -313,7 +322,7 @@ public MRESReturn DHook_AcceptInput(int pThis, Handle hReturn, Handle hParams)
 
 	if(StrContains(sParameter, "play") != -1)
 	{
-		if(gI_Settings[client] & Debug)
+		if(gB_Debug[client])
 		{
 			PrintToChat(client, "[Debug] Output Blocked (%s)", sParameter);
 		}
@@ -338,6 +347,7 @@ void HookSendSound(Handle hGameData)
 	{
 		SetFailState("Couldn't enable CGameClient::SendSound detour.");
 	}
+	
 
 	StartPrepSDKCall(SDKCall_Raw);
 	PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "CBaseClient::GetPlayerSlot");
@@ -347,6 +357,24 @@ void HookSendSound(Handle hGameData)
 	if(gH_GetPlayerSlot == null)
 	{
 		SetFailState("Could not initialize call to CBaseClient::GetPlayerSlot.");
+	}
+	
+	gP_GameServer = GameConfGetAddress(hGameData, "CGameServer");
+	
+	if(gP_GameServer == Address_Null)
+	{
+		SetFailState("Could not get address of CGameServer pointer.");
+	}
+	
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(hGameData, SDKConf_Signature, "CGameServer::GetSound");
+	PrepSDKCall_SetReturnInfo(SDKType_String, SDKPass_Pointer, VDECODE_FLAG_ALLOWNULL);
+	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
+	gH_GetSound = EndPrepSDKCall();
+
+	if(gH_GetSound == null)
+	{
+		SetFailState("Could not initialize call to CGameServer::GetSound.");
 	}
 }
 
@@ -371,7 +399,7 @@ void HookSendSound(Handle hGameData)
     bool            bIsSentence;       Offset: 84 | Size: 1
     bool            bIsAmbient;        Offset: 85 | Size: 1
     int             nSpeakerEntity;    Offset: 88 | Size: 4
-};*/
+}; */
 
 // CSGO:
 /* struct SoundInfo_t
@@ -395,12 +423,17 @@ void HookSendSound(Handle hGameData)
     bool            bIsSentence;       Offset: 88  | Size: 1
     bool            bIsAmbient;        Offset: 89  | Size: 1
     bool            bLooping;          Offset: 90  | Size: 1
-};*/
+}; */
 
 // void CGameClient::SendSound( SoundInfo_t &sound, bool isReliable )
 public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 {
 	if(DHookGetParamObjectPtrVar(hParams, 1, 40, ObjectValueType_Float) == 0.0)
+	{
+		return MRES_Ignored;
+	}
+	
+	if(DHookGetParamObjectPtrVar(hParams, 1, gI_IsSentenceOffset, ObjectValueType_Bool))
 	{
 		return MRES_Ignored;
 	}
@@ -414,16 +447,25 @@ public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 	}
 
 	bool bIsAmbient = DHookGetParamObjectPtrVar(hParams, 1, gI_AmbientOffset, ObjectValueType_Bool);
+	int nSoundNum = DHookGetParamObjectPtrVar(hParams, 1, gI_SoundNumOffset, ObjectValueType_Int);
 
 	MRESReturn ret = MRES_Ignored;
-
+	
+	char sSample[128];
+	SDKCall(gH_GetSound, gP_GameServer, sSample, sizeof(sSample), nSoundNum);
+	
+	if(gI_Settings[client] & Mute_HurtSounds && (StrContains(sSample, "player/damage") != -1))
+	{
+		ret = MRES_Supercede;
+	}
+	
 	if(bIsAmbient)
 	{
 		if(gI_Settings[client] & Mute_AmbientSounds)
 		{
-			if(gI_Settings[client] & Debug)
+			if(gB_Debug[client])
 			{
-				PrintToChat(client, "[Debug] Ambient Blocked");
+				PrintToChat(client, "[Debug] Ambient Blocked (%s)", sSample);
 			}
 			ret = MRES_Supercede;
 		}
@@ -432,9 +474,9 @@ public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 	{
 		if(gI_Settings[client] & Mute_NormalSounds)
 		{
-			if(gI_Settings[client] & Debug)
+			if(gB_Debug[client])
 			{
-				PrintToChat(client, "[Debug] Sound Blocked");
+				PrintToChat(client, "[Debug] Sound Blocked (%s)", sSample);
 			}
 			ret = MRES_Supercede;
 		}
@@ -445,13 +487,27 @@ public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 //-----------------------------------------------------
 
 //------------------------MENU-------------------------
+void AddSettingItemToMenu(Menu menu, int client, const char[] setting_name, int setting_id, bool new_line = false)
+{
+	char sDisplay[64];
+	char sInfo[16];
+
+	FormatEx(sDisplay, 64, "%s: [%s]", setting_name, gI_Settings[client] & setting_id ? "Muted" : "On");
+	if(new_line)
+	{
+		StrCat(sDisplay, 64, "\n ");
+	}
+	IntToString(setting_id, sInfo, 16);
+	menu.AddItem(sInfo, sDisplay);
+}
+
 public Action Command_Sounds(int client, int args)
 {
 	if(!IsValidClient(client))
 	{
 		return Plugin_Handled;
 	}
-
+	
 	Menu menu = new Menu(MenuHandler_Sounds);
 	menu.SetTitle("Sound Manager\n ");
 
@@ -469,25 +525,14 @@ public Action Command_Sounds(int client, int args)
 
 	if(CheckCommandAccess(client, "soundmanager_debug", ADMFLAG_RCON))
 	{
-		AddSettingItemToMenu(menu, client, "Debug Prints", Debug);
+		char sDisplay[64];
+		FormatEx(sDisplay, 64, "Debug Prints: [%s]", gB_Debug[client] ? "Yes" : "No");
+		menu.AddItem("debug", sDisplay);
 	}
 
 	menu.Display(client, MENU_TIME_FOREVER);
+	
 	return Plugin_Handled;
-}
-
-void AddSettingItemToMenu(Menu menu, int client, const char[] setting_name, int setting_id, bool new_line = false)
-{
-	char sDisplay[64];
-	char sInfo[16];
-
-	FormatEx(sDisplay, 64, "%s: [%s]", setting_name, gI_Settings[client] & setting_id ? "Muted" : "On");
-	if(new_line)
-	{
-		StrCat(sDisplay, 64, "\n ");
-	}
-	IntToString(setting_id, sInfo, 16);
-	menu.AddItem(sInfo, sDisplay);
 }
 
 public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int param2)
@@ -506,6 +551,13 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 				Command_Sounds(param1, 0);
 				return 0;
 			}
+		}
+		
+		if(StrEqual(sInfo, "debug"))
+		{
+			gB_Debug[param1] = !gB_Debug[param1];
+			Command_Sounds(param1, 0);
+			return 0;
 		}
 
 		int iOption = StringToInt(sInfo);
@@ -561,7 +613,19 @@ public Action Hook_ShotgunShot(const char[] te_name, const int[] Players, int nu
 
 	// Check which clients need to be excluded.
 	int newClients[MAXPLAYERS+1];
-	int count = FilterClientsWithSettingOn(Mute_GunSounds, numClients, Players, newClients);
+	int count = 0;
+
+	for(int i = 0; i < numClients; i++)
+	{
+		int iClient = Players[i];
+
+		// player not muting gun sounds
+		if(gI_Settings[iClient] & Mute_GunSounds == 0)
+		{
+			newClients[count] = iClient;
+			count++;
+		}
+	}
 
 	// No clients were excluded.
 	if(count == numClients)
@@ -612,46 +676,6 @@ void CheckShotgunShotHook()
 
 	// Fake (un)hook because toggling actual hooks will cause server instability.
 	gB_ShouldHookShotgunShot = bShouldHook;
-}
-
-public Action NormalSoundHook(int clients[MAXPLAYERS], int &numClients, char sample[PLATFORM_MAX_PATH], int &entity, int &channel, float &volume, int &level, int &pitch, int &flags, char soundEntry[PLATFORM_MAX_PATH], int &seed)
-{
-	if(StrEqual(sample, "player/damage1.wav")
-		|| StrEqual(sample, "player/damage2.wav")
-		|| StrEqual(sample, "player/damage3.wav"))
-	{
-		int newClients[MAXPLAYERS];
-		int count = FilterClientsWithSettingOn(Mute_HurtSounds, numClients, clients, newClients);
-
-		if(count != numClients)
-		{
-			clients = newClients;
-			numClients = count;
-			return Plugin_Changed;
-		}
-	}
-
-	return Plugin_Continue;
-}
-
-// returns count of players with enabled sound
-int FilterClientsWithSettingOn(int setting_id, int numClients, const int[] input_players, int[] output_players)
-{
-	int count = 0;
-
-	for(int i = 0; i < numClients; i++)
-	{
-		int iClient = input_players[i];
-
-		// player not muting gun sounds
-		if(gI_Settings[iClient] & setting_id == 0)
-		{
-			output_players[count] = iClient;
-			count++;
-		}
-	}
-
-	return count;
 }
 
 bool IsValidClient(int client)
