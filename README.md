@@ -13,7 +13,7 @@ Plugin for managing sound entities in games Counter-Strike: Source and Counter-S
 * !stopmusic
 * !stopsounds
 
-# Warn:
+# Warning:
 
 If the sound has started playing, then you can stop it only by writing `snd_restart` to the console, perhaps in the future I will add the ability to stop active sounds without using this command
 
