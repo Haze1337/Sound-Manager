@@ -247,7 +247,7 @@ public void OnMapStart()
 {
 	static const char sSilentSoundScapes[][] = {
 		"port.LightHum2",
-		"test_tvset"
+		"Nothing"
 	};
 
 	gI_SilentSoundScape = -1;
