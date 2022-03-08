@@ -232,7 +232,7 @@ void StartPrepSDKCall_GetStringID(Handle hGameData)
 	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
 	gH_GetStringID = EndPrepSDKCall();
-	if (!gH_GetStringID)
+	if (gH_GetStringID == null)
 	{
 		SetFailState("Could not initialize call to CStringRegistry::GetStringID.");
 	}
