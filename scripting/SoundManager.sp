@@ -10,7 +10,7 @@ public Plugin myinfo =
 	name = "Sound Manager",
 	author = "Haze",
 	description = "",
-	version = "1.0.1",
+	version = "1.0.2",
 	url = ""
 }
 
@@ -34,12 +34,14 @@ int gI_LastSoundscape[MAXPLAYERS+1];
 // Cookie
 Handle gH_SettingsCookie = null;
 
-// Dhooks
+// DHooks
+Address gP_SoundscapeSystem = Address_Null;
 Handle gH_AcceptInput = null;
 Handle gH_GetPlayerSlot = null;
+Handle gH_GetStringID = null;
 
 // Other
-int gI_SilentSoundScape = 0;
+int gI_SilentSoundScape = -1;
 int gI_AmbientOffset = 0;
 bool gB_ShouldHookShotgunShot = false;
 ArrayList gA_LoopingAmbients = null;
@@ -54,19 +56,15 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	gB_LateLoad = late;
 }
 
-//CSS: 138: port.LightHum2
-//CSGO: 199: port.LightHum2
 public void OnPluginStart()
 {
 	gEV_Type = GetEngineVersion();
 	if(gEV_Type == Engine_CSS)
 	{
-		gI_SilentSoundScape = 138;
 		gI_AmbientOffset = 85;
 	}
 	else if(gEV_Type == Engine_CSGO)
 	{
-		gI_SilentSoundScape = 199;
 		gI_AmbientOffset = 89;
 	}
 	else
@@ -91,7 +89,7 @@ public void OnPluginStart()
 	HookEvent("round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 
 	// Dhooks
-	LoadDhooks();
+	LoadDHooks();
 
 	// Sound Hook
 	AddTempEntHook("Shotgun Shot", Hook_ShotgunShot);
@@ -106,7 +104,7 @@ public void OnPluginStart()
 		}
 
 		Event_RoundStart(null, "", false);
-		
+
 		for(int i = 1; i <= MaxClients; i++)
 		{
 			if(!IsValidClient(i))
@@ -199,12 +197,12 @@ public Action OnPlayerRunCmd(int client)
 	}
 
 	gB_AlreadyMuted[client] = true;
-	
+
 	return Plugin_Continue;
 }
 //-------------------------------------------------------------
 
-void LoadDhooks()
+void LoadDHooks()
 {
 	Handle hGameData = LoadGameConfigFile("SoundManager.games");
 	if(!hGameData)
@@ -212,6 +210,7 @@ void LoadDhooks()
 		SetFailState("Failed to load SoundManager gamedata.");
 	}
 
+	StartPrepSDKCall_GetStringID(hGameData);
 	HookSoundscapes(hGameData);
 	HookAcceptInput(hGameData);
 	HookSendSound(hGameData);
@@ -220,12 +219,58 @@ void LoadDhooks()
 }
 
 //-------------------------SOUNDSCAPES-------------------------
+void StartPrepSDKCall_GetStringID(Handle hGameData)
+{
+	gP_SoundscapeSystem = GameConfGetAddress(hGameData, "CSoundscapeSystem");
+	if(gP_SoundscapeSystem == Address_Null)
+	{
+		SetFailState("Could not get address of CSoundscapeSystem pointer.");
+	}
+
+	StartPrepSDKCall(SDKCall_Raw);
+	PrepSDKCall_SetFromConf(hGameData, SDKConf_Signature, "CStringRegistry::GetStringID");
+	PrepSDKCall_AddParameter(SDKType_String, SDKPass_Pointer);
+	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
+	gH_GetStringID = EndPrepSDKCall();
+	if (gH_GetStringID == null)
+	{
+		SetFailState("Could not initialize call to CStringRegistry::GetStringID.");
+	}
+}
+
+int GetSoundscapeIndex(const char[] sString)
+{
+	return SDKCall(gH_GetStringID, gP_SoundscapeSystem + view_as<Address>(0xC), sString);
+}
+
+public void OnMapStart()
+{
+	static const char sSilentSoundScapes[][] = {
+		"port.LightHum2",
+		"Nothing"
+	};
+
+	gI_SilentSoundScape = -1;
+
+	if (gH_GetStringID)
+	{
+		for(int i = 0; i < sizeof(sSilentSoundScapes); i++)
+		{
+			gI_SilentSoundScape = GetSoundscapeIndex(sSilentSoundScapes[i]);
+			if(gI_SilentSoundScape != -1)
+			{
+				//PrintToServer("Found: %s (%d)", sSilentSoundScapes[i], gI_SilentSoundScape);
+				break;
+			}
+		}
+	}
+}
+
 void HookSoundscapes(Handle hGameData)
 {
 	Handle hFunction = DHookCreateDetour(Address_Null, CallConv_THISCALL, ReturnType_Void, ThisPointer_CBaseEntity); 
 	DHookSetFromConf(hFunction, hGameData, SDKConf_Signature, "CEnvSoundscape::UpdateForPlayer");
 	DHookAddParam(hFunction, HookParamType_ObjectPtr);
-
 	if(!DHookEnableDetour(hFunction, false, DHook_UpdateForPlayer))
 	{
 		SetFailState("Couldn't enable CEnvSoundscape::UpdateForPlayer detour.");
@@ -247,6 +292,11 @@ struct ss_update_t
 //void CEnvSoundscape::UpdateForPlayer( ss_update_t &update )
 public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 {
+	if(gI_SilentSoundScape == -1)
+	{
+		return MRES_Ignored;
+	}
+
 	int client = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_CBaseEntityPtr);
 
 	MRESReturn ret = MRES_Ignored;
@@ -278,7 +328,6 @@ public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 void HookAcceptInput(Handle hGameData)
 {
 	int offset = GameConfGetOffset(hGameData, "AcceptInput");
-
 	if(offset == 0) 
 	{
 		SetFailState("Failed to load \"AcceptInput\", invalid offset.");
@@ -332,7 +381,6 @@ void HookSendSound(Handle hGameData)
 	DHookSetFromConf(hFunction, hGameData, SDKConf_Signature, "CGameClient::SendSound");
 	DHookAddParam(hFunction, HookParamType_ObjectPtr);
 	DHookAddParam(hFunction, HookParamType_Bool);
-
 	if(!DHookEnableDetour(hFunction, false, DHook_SendSound))
 	{
 		SetFailState("Couldn't enable CGameClient::SendSound detour.");
@@ -342,7 +390,6 @@ void HookSendSound(Handle hGameData)
 	PrepSDKCall_SetFromConf(hGameData, SDKConf_Virtual, "CBaseClient::GetPlayerSlot");
 	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
 	gH_GetPlayerSlot = EndPrepSDKCall();
-
 	if(gH_GetPlayerSlot == null)
 	{
 		SetFailState("Could not initialize call to CBaseClient::GetPlayerSlot.");
@@ -404,7 +451,7 @@ public MRESReturn DHook_SendSound(Address pThis, Handle hParams)
 		return MRES_Ignored;
 	}
 
-	Address pIClient = pThis + view_as<Address>(4);
+	Address pIClient = pThis + view_as<Address>(0x4);
 	int client = view_as<int>(SDKCall(gH_GetPlayerSlot, pIClient)) + 1;
 
 	if(!IsValidClient(client))
@@ -470,7 +517,7 @@ public Action Command_Sounds(int client, int args)
 	FormatEx(sDisplay, 64, "Ambient Sounds: [%s]", gI_Settings[client] & Mute_AmbientSounds ? "Muted" : "On");
 	IntToString(Mute_AmbientSounds, sInfo, 16);
 	menu.AddItem(sInfo, sDisplay);
-	
+
 	FormatEx(sDisplay, 64, "Normal Sounds: [%s]", gI_Settings[client] & Mute_NormalSounds ? "Muted" : "On");
 	IntToString(Mute_NormalSounds, sInfo, 16);
 	menu.AddItem(sInfo, sDisplay);
