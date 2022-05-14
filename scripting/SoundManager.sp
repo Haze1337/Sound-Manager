@@ -187,6 +187,18 @@ public Action OnPlayerRunCmd(int client)
 		{
 			char sSound[PLATFORM_MAX_PATH];
 			GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, PLATFORM_MAX_PATH);
+
+			int channel = SNDCHAN_STATIC;
+			int level = SNDLEVEL_NONE;
+			float volume = 0.0;
+			int pitch = SNDPITCH_NORMAL;
+			char sSample[PLATFORM_MAX_PATH];
+
+			if (GetGameSoundParams(sSound, channel, level, volume, pitch, sSample, sizeof(sSample), entity))
+			{
+				sSound = sSample;
+			}
+
 			EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
 
 			if(gI_Settings[client] & Debug)
