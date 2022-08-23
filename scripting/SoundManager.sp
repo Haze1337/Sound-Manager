@@ -10,7 +10,7 @@ public Plugin myinfo =
 	name = "Sound Manager",
 	author = "Haze",
 	description = "",
-	version = "1.0.2",
+	version = "1.0.3",
 	url = ""
 }
 
@@ -43,6 +43,8 @@ Handle gH_GetStringID = null;
 // Other
 int gI_SilentSoundScape = -1;
 int gI_AmbientOffset = 0;
+char gS_WeaponID[32];
+
 bool gB_ShouldHookShotgunShot = false;
 ArrayList gA_LoopingAmbients = null;
 bool gB_EntitiesFound = false;
@@ -62,10 +64,12 @@ public void OnPluginStart()
 	if(gEV_Type == Engine_CSS)
 	{
 		gI_AmbientOffset = 85;
+		FormatEx(gS_WeaponID, sizeof(gS_WeaponID), "m_iWeaponID");
 	}
 	else if(gEV_Type == Engine_CSGO)
 	{
 		gI_AmbientOffset = 89;
+		FormatEx(gS_WeaponID, sizeof(gS_WeaponID), "m_weapon");
 	}
 	else
 	{
@@ -187,7 +191,7 @@ public Action OnPlayerRunCmd(int client)
 		{
 			char sSound[PLATFORM_MAX_PATH];
 			GetEntPropString(entity, Prop_Data, "m_iszSound", sSound, PLATFORM_MAX_PATH);
-			EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, SNDPITCH_NORMAL, _, _, _, true);
+			EmitSoundToClient(client, sSound, entity, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_STOP, 0.0, 0, _, _, _, true);
 
 			if(gI_Settings[client] & Debug)
 			{
@@ -644,7 +648,7 @@ public Action Hook_ShotgunShot(const char[] te_name, const int[] Players, int nu
 	TE_WriteVector("m_vecOrigin", vTemp);
 	TE_WriteFloat("m_vecAngles[0]", TE_ReadFloat("m_vecAngles[0]"));
 	TE_WriteFloat("m_vecAngles[1]", TE_ReadFloat("m_vecAngles[1]"));
-	TE_WriteNum("m_iWeaponID", TE_ReadNum("m_iWeaponID"));
+	TE_WriteNum(gS_WeaponID, TE_ReadNum(gS_WeaponID));
 	TE_WriteNum("m_iMode", TE_ReadNum("m_iMode"));
 	TE_WriteNum("m_iSeed", TE_ReadNum("m_iSeed"));
 	TE_WriteNum("m_iPlayer", TE_ReadNum("m_iPlayer"));
