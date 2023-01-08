@@ -375,7 +375,7 @@ public MRESReturn DHook_AcceptInput(int pThis, Handle hReturn, Handle hParams)
 	char sParameter[128];
 	DHookGetParamObjectPtrString(hParams, 4, 0, ObjectValueType_String, sParameter, 128);
 
-	if(StrContains(sParameter, "play") != -1)
+	if(StrContains(sParameter, "play ") != -1)
 	{
 		if(gI_Settings[client] & Debug)
 		{
