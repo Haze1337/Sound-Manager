@@ -375,7 +375,13 @@ public MRESReturn DHook_AcceptInput(int pThis, Handle hReturn, Handle hParams)
 	char sParameter[128];
 	DHookGetParamObjectPtrString(hParams, 4, 0, ObjectValueType_String, sParameter, 128);
 
-	if(StrContains(sParameter, "play ") != -1)
+	char sExplode[1][128];
+	ExplodeString(sParameter, " ", sExplode, sizeof(sExplode), sizeof(sExplode[]));
+
+	if(strcmp(sExplode[0], "play") == 0
+	|| strcmp(sExplode[0], "playgamesound") == 0
+	|| strcmp(sExplode[0], "play_hrtf") == 0
+	|| strcmp(sExplode[0], "snd_playsounds") == 0)
 	{
 		if(gI_Settings[client] & Debug)
 		{
