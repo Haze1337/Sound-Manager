@@ -1,20 +1,5 @@
 "Games"
 {
-	"#default"
-	{
-		"Addresses"
-		{
-			"CSoundscapeSystem"
-			{
-				"linux"
-				{
-					"signature"		"soundscape_flush"
-					"read"			"88"
-				}
-			}
-		}
-	}
-
 	"cstrike"
 	{
 		"Addresses"
@@ -25,6 +10,11 @@
 				{
 					"signature"		"soundscape_flush"
 					"read"			"93"
+				}
+				"linux"
+				{
+					"signature"		"soundscape_flush"
+					"read"			"88"
 				}
 			}
 		}
@@ -87,37 +77,78 @@
 					"signature"		"soundscape_flush"				
 					"read"			"94"
 				}
+				"linux"
+				{
+					"signature"		"soundscape_flush"
+					"read"			"133"
+				}
 			}
 		}
 
 		"Signatures"
 		{
+			/*
+			Find string: Setting invalid soundscape, %s, as the
+			Go to function that uses this string
+			Go to the first xref
+			*/
 			"CEnvSoundscape::UpdateForPlayer"
 			{
 				"library"		"server"
 				"windows"		"\x55\x8B\xEC\x83\xE4\xF0\x81\xEC\xA8\x00\x00\x00\x56\x8B\xF1\x57\x80\xBE\xDC\x03\x00\x00\x00"
-				"linux"			"\x55\x89\xE5\x81\xEC\xE8\x00\x00\x00\x89\x5D\xF4\x8B\x5D\x08\x89\x75\xF8\x8B\x75\x0C\x89\x7D\xFC\x80\xBB\xF4\x03\x00\x00\x00"
+				"linux"			"\x55\x89\xE5\x57\x56\x53\x81\xEC\xEC\x00\x00\x00\x8B\x5D\x08\x8B\x7D\x0C"
 			}
 
+			/*
+			Find string: reliable%s %s %d/%d/%d/%s\n
+			Go to function that uses this string
+			*/
 			"CGameClient::SendSound"
 			{
 				"library"		"engine"
 				"windows"		"\x55\x8B\xEC\x51\x56\x8B\xF1\x8B\x46\x04"
-				"linux"			"\x55\x89\xE5\x57\x56\x53\x83\xEC\x4C\x8B\x5D\x08\x8B\x7D\x0C\x0F\xB6\x75\x10"
+				"linux"			"\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B\x5D\x08\x8B\x75\x10\x8B\x03"
 			}
 
+			/*
+			Find string: cl_soundscape_flush\n
+			Go to function that uses this string
+			*/
 			"soundscape_flush"
 			{
 				"library"		"server"
 				"windows"		"\x56\xE8\x2A\x2A\x2A\x2A\x8B\xF0\x85\xF6\x74\x2A\x8B\x16\x8B\xCE\x8B\x92\x58\x01\x00\x00\xFF\xD2\x84\xC0\x75\x2A"
-				"linux"			"\x55\x89\xE5\x53\x83\xEC\x14\xE8\x2A\x2A\x2A\x2A\x85\xC0\x89\xC3\x0F\x84\x2A\x2A\x2A\x2A"
+				"linux"			"\x55\x89\xE5\x53\x83\xEC\x04\xE8\x2A\x2A\x2A\x2A\x85\xC0\x74\x2A\x89\xC3\x8B\x00\x8B\x80\x5C\x01\x00\x00\x3D\x2A\x2A\x2A\x2A\x75\x2A\xA1\x2A\x2A\x2A\x2A"
 			}
 
+			/*
+			Find string: Can't find soundscape: %s\n
+			Go to function that uses this string
+			
+			  if ( !*(_DWORD *)(a1 + 964) )
+				return DevMsg("Found soundscape entity with no soundscape name.\n");
+			  v1 = sub_821D00(&dword_17B5380);	<<< Jump here
+			  *(_DWORD *)(a1 + 968) = v1;
+			  result = sub_821D20(&dword_17B5380, v1);
+			  if ( !(_BYTE)result )
+			  {
+				v3 = *(const char **)(a1 + 964);
+				if ( !v3 )
+				  v3 = &nptr;
+				result = DevWarning("Can't find soundscape: %s\n", v3);
+			
+			// ----------------------------------------------------- //
+				
+			int __cdecl sub_821D00(int a1, int a2)
+			{
+			  return sub_8B1670(a1 + 12, a2);	<< Jump here
+			}
+			*/
 			"CStringRegistry::GetStringID"
 			{
 				"library"		"server"
 				"windows"		"\x55\x8B\xEC\x8B\x45\x08\x83\xEC\x08\x56\x57\x8B\xF9\x85\xC0"
-				"linux"			"\x55\xB9\xFF\xFF\xFF\xFF\x89\xE5\x56\xBE\xFF\xFF\x00\x00"
+				"linux"			"\x55\x89\xE5\x57\x56\x53\x83\xEC\x2C\x8B\x55\x08\x8B\x45\x0C\x8B\x3A"
 			}
 
 		}
