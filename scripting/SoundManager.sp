@@ -10,7 +10,7 @@ public Plugin myinfo =
 	name = "Sound Manager",
 	author = "Haze",
 	description = "",
-	version = "1.0.3",
+	version = "1.0.4",
 	url = ""
 }
 
@@ -158,6 +158,11 @@ public void OnClientCookiesCached(int client)
 	if((gI_Settings[client] & Mute_GunSounds) && gB_ShouldHookShotgunShot == false)
 	{
 		gB_ShouldHookShotgunShot = true;
+	}
+
+	if(gI_Settings[client] & Mute_Soundscapes)
+	{
+		ClientCommand(client, "cl_soundscape_flush"); // maybe auth can take a long time and a soundscape slips through...
 	}
 }
 
@@ -308,10 +313,12 @@ struct ss_update_t
 //void CEnvSoundscape::UpdateForPlayer( ss_update_t &update )
 public MRESReturn DHook_UpdateForPlayer(int pThis, Handle hParams)
 {
+#if 0
 	if(gI_SilentSoundScape == -1)
 	{
 		return MRES_Ignored;
 	}
+#endif
 
 	int client = DHookGetParamObjectPtrVar(hParams, 1, 0, ObjectValueType_CBaseEntityPtr);
 
@@ -587,6 +594,13 @@ public int MenuHandler_Sounds(Menu menu, MenuAction action, int param1, int para
 		if(iOption == Mute_GunSounds)
 		{
 			CheckShotgunShotHook();
+		}
+		else if(iOption == Mute_Soundscapes)
+		{
+			if(gI_Settings[param1] & Mute_Soundscapes)
+			{
+				ClientCommand(param1, "cl_soundscape_flush");
+			}
 		}
 
 		char sCookie[16];
