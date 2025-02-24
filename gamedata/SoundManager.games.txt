@@ -11,57 +11,122 @@
 					"signature"		"soundscape_flush"
 					"read"			"93"
 				}
+				"windows64"
+				{
+					"signature"		"soundscape_flush"
+					"read"			"107"
+				}
 				"linux"
 				{
 					"signature"		"soundscape_flush"
-					"read"			"88"
+					"read"			"129"
+				}
+				"linux64"
+				{
+					"signature"		"soundscape_flush"
+					"read"			"144"
 				}
 			}
 		}
 
 		"Signatures"
 		{
+			// search for "Error parsing soundscape file %s after %s" to find CSoundscapeSystem::AddSoundscapeFile. Then go to vtable that references it...
+			// go up two functions to find CSoundscapeSystem::FrameUpdatePostEntityThink
+			// then look around the middle for calls to CEnvSoundscape::UpdateForPlayer
+			// You can find stuff like this inside UpdateForPlayer: (which are floats)
+			//    local_24 = 0x41200000;
+			//    local_20 = 0x41200000;
+			//    local_1c = 0x41200000;
+			//    local_30 = 0xc1200000;
+			//    local_2c = 0xc1200000;
+			//    local_28 = 0xc1200000;
 			"CEnvSoundscape::UpdateForPlayer"
 			{
 				"library"		"server"
-				"windows"		"\x55\x8B\xEC\x81\xEC\x80\x00\x00\x00\x56\x8B\xF1\x80\xBE\x88\x03\x00\x00\x00"
+				"windows"		"\x55\x8B\xEC\x81\xEC\x80\x00\x00\x00\x56\x8B\xF1\x57\x8B\x7D"
+				"windows64"     "\x40\x53\x56\x57\x48\x81\xEC\x10\x01\x00\x00"
 				"linux"			"@_ZN14CEnvSoundscape15UpdateForPlayerER11ss_update_t"
+				"linux64"       "@_ZN14CEnvSoundscape15UpdateForPlayerER11ss_update_t"
 			}
 
+			// search "CGameServer::BroadcastSound:" to find CGameServer::BroadcastSound and it includes a call to CGameClient::SendSound somewhere near the bottom
 			"CGameClient::SendSound"
 			{
 				"library"		"engine"
-				"windows"		"\x55\x8B\xEC\x81\xEC\xC8\x00\x00\x00\x56\x8B\xF1"
+				"windows"		"\x55\x8B\xEC\x81\xEC\xCC\x00\x00\x00\x56\x8B\xF1"
+				"windows64"     "\x48\x89\x5C\x24\x2A\x48\x89\x74\x24\x2A\x48\x89\x7C\x24\x2A\x4C\x89\x74\x24\x2A\x55\x48\x8D\x6C\x24\x2A\x48\x81\xEC\x30\x01\x00\x00"
 				"linux"			"@_ZN11CGameClient9SendSoundER11SoundInfo_tb"
+				"linux64"       "@_ZN11CGameClient9SendSoundER11SoundInfo_tb"
 			}
 
+			// search "cl_soundscape_flush" to find the command handler for "soundscape_flush"
 			"soundscape_flush"
 			{
 				"library"		"server"
-				"windows"		"\x56\xE8\x2A\x2A\x2A\x2A\x8B\xF0\x85\xF6\x74\x2A\x8B\x16\x8B\xCE\x8B\x92\x40\x01\x00\x00\xFF\xD2\x84\xC0\x75\x2A"
+				"windows"		"\x56\xE8\x2A\x2A\x2A\x2A\x8B\xF0\x85\xF6\x74\x2A\x8B\x16\x8B\xCE\x8B\x92\x2A\x2A\x2A\x2A\xFF\xD2\x84\xC0\x75\x2A\x33\xF6"
+				"windows64"     "\x40\x53\x48\x83\xEC\x20\xE8\x2A\x2A\x2A\x2A\x48\x8B\xD8\x48\x85\xC0\x74\x2A\x48\x8B\x00"
 				"linux"			"@_ZL16soundscape_flushRK8CCommand"
+				"linux64"       "@_ZL16soundscape_flushRK8CCommand"
 			}
 
+			// search "Shared activity collision" to find ActivityList_RegisterSharedActivity and the first function called inside is GetStringID
 			"CStringRegistry::GetStringID"
 			{
 				"library"		"server"
-				"windows"		"\x55\x8B\xEC\x8B\x45\x08\x83\xEC\x08\x53"
+				"windows"		"\x55\x8B\xEC\x83\xEC\x0C\x8B\x45\x2A\x89\x4D\x2A\x53\xBB\xFF\xFF\x00\x00"
+				"windows64"     "\x48\x89\x5C\x24\x2A\x57\x48\x83\xEC\x30\x4C\x89\x7C\x24"
 				"linux"			"@_ZN15CStringRegistry11GetStringIDEPKc"
+				"linux64"       "@_ZN15CStringRegistry11GetStringIDEPKc"
 			}
 		}
-		
+
 		"Offsets"
 		{
-			"AcceptInput"
-			{
-				"windows"		"36"
-				"linux"			"37"
-			}
-
+			// search "Replay client not found" to find CReplayServer::StartMaster and then look for the "cl_predict" string setting and grab the GetPlayerSlot offset from the next function call.
+			// (windows64 probably means divide it by four 😇)
 			"CBaseClient::GetPlayerSlot"
 			{
 				"windows"		"14"
+				"windows64"     "28"
 				"linux"			"15"
+				"linux64"       "24"
+			}
+			// find in CSoundscapeSystem::GetSoundscapeIndex
+			"CSoundscapeSystem::m_soundscapes"
+			{
+				"windows"   "12"
+				"windows64" "24"
+				"linux"     "12"
+				"linux64"   "24"
+			}
+			"SoundInfo_t::fVolume"
+			{
+				"windows"   "40"
+				"windows64" "44"
+				"linux"     "40"
+				"linux64"   "44"
+			}
+			"SoundInfo_t::bIsAmbient"
+			{
+				"windows"   "85"
+				"windows64" "89"
+				"linux"     "85"
+				"linux64"   "89"
+			}
+			"ss_update_t::pCurrentSoundscape"
+			{
+				"windows"   "4"
+				"windows64" "8"
+				"linux"     "4"
+				"windows64" "8"
+			}
+			"CGameClient::thing"
+			{
+				"windows"   "4"
+				"windows64" "8"
+				"linux"     "4"
+				"windows64" "8"
 			}
 		}
 	}
@@ -74,7 +139,7 @@
 			{
 				"windows"
 				{
-					"signature"		"soundscape_flush"				
+					"signature"		"soundscape_flush"
 					"read"			"94"
 				}
 				"linux"
@@ -124,7 +189,7 @@
 			/*
 			Find string: Can't find soundscape: %s\n
 			Go to function that uses this string
-			
+
 			  if ( !*(_DWORD *)(a1 + 964) )
 				return DevMsg("Found soundscape entity with no soundscape name.\n");
 			  v1 = sub_821D00(&dword_17B5380);	<<< Jump here
@@ -136,9 +201,9 @@
 				if ( !v3 )
 				  v3 = &nptr;
 				result = DevWarning("Can't find soundscape: %s\n", v3);
-			
+
 			// ----------------------------------------------------- //
-				
+
 			int __cdecl sub_821D00(int a1, int a2)
 			{
 			  return sub_8B1670(a1 + 12, a2);	<< Jump here
@@ -155,16 +220,35 @@
 
 		"Offsets"
 		{
-			"AcceptInput"
-			{
-				"windows"		"41"
-				"linux"			"42"
-			}
-
 			"CBaseClient::GetPlayerSlot"
 			{
 				"windows"		"16"
 				"linux"			"17"
+			}
+			"CSoundscapeSystem::m_soundscapes"
+			{
+				"windows"   "12"
+				"linux"     "12"
+			}
+			"SoundInfo_t::fVolume"
+			{
+				"windows"   "40"
+				"linux"     "40"
+			}
+			"SoundInfo_t::bIsAmbient"
+			{
+				"windows"   "89"
+				"linux"     "89"
+			}
+			"ss_update_t::pCurrentSoundscape"
+			{
+				"windows"   "4"
+				"linux"     "4"
+			}
+			"CGameClient::thing"
+			{
+				"windows"   "4"
+				"linux"     "4"
 			}
 		}
 	}
